@@ -1499,6 +1499,7 @@ const GAME = (() => {
         c.stroke();
       }
     }
+    drawGlassFringe(c, px);
     // 빛이 닿은 자리
     for (const p of R.paths) {
       const n = p.pts.length, x = p.pts[n - 2], y = p.pts[n - 1];
@@ -1508,6 +1509,41 @@ const GAME = (() => {
       const col = colOf(p.lambda);
       g.addColorStop(0, rgba(col, mono ? 0.7 : Math.min(0.25, 9 / p.nL / p.nO))); g.addColorStop(1, rgba(col, 0));
       c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+
+  // 유리를 지나는 구간에도 파장별 색을 얹어, 굴절되는 순간부터 분산이 드러나게 한다.
+  // 더하기 블렌딩(lighter)은 서로 다른 파장이 겹치면 다시 백색으로 합쳐지므로,
+  // 이 구간만은 보통 블렌딩(source-over)으로 얇게 덧칠해 가장자리 색 번짐을 보여준다.
+  function drawGlassFringe(c, px) {
+    const groups = new Map();
+    for (const p of R.paths) {
+      if (p.nL <= 2) continue; // 단색광은 분산이 없다
+      const key = `${p.si}:${p.oi}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
+    }
+    if (!groups.size) return;
+    c.save();
+    c.globalCompositeOperation = 'source-over';
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    c.lineWidth = Math.max(1.6, 2.4 * px);
+    for (const group of groups.values()) {
+      group.sort((x, y) => x.li - y.li);
+      for (const p of group) {
+        for (let i = 1; i < p.tags.length - 1; i++) {
+          const t0 = p.tags[i], t1 = p.tags[i + 1];
+          if (t0 && t1 && typeof t0 === 'object' && typeof t1 === 'object' && t0.role === 'glass' && t1.role === 'glass') {
+            const a = 2 * i;
+            c.strokeStyle = rgba(colOf(p.lambda), 0.14);
+            c.beginPath();
+            c.moveTo(p.pts[a], p.pts[a + 1]);
+            c.lineTo(p.pts[a + 2], p.pts[a + 3]);
+            c.stroke();
+          }
+        }
+      }
     }
     c.restore();
   }
