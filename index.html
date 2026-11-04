@@ -1,0 +1,2468 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>광로 실험실</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link rel="preconnect" href="https://fonts.gstatic.com/">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap">
+<style>
+
+/* 배치: 왼쪽은 광학 정반(캔버스), 오른쪽은 실험 노트 패널. 좁은 화면에서는 위아래로 쌓인다.
+   어두운 암실 하나로만 디자인한 단일 테마. */
+:root {
+  --page: #0a0c0f;
+  --panel: #13171d;
+  --line: #252c35;
+  --line-2: #323a45;
+  --ink: #e3e7ec;
+  --muted: #8b95a3;
+  --dim: #66707e;
+  --tape: #e8d9a0;
+  --tape-ink: #2a2619;
+  --accent: #f3c447;
+  --accent-ink: #1a1606;
+  --ok: #74d99f;
+  --bad: #ff8a7a;
+  --f-hand: "Nanum Pen Script", "Gaegu", "Comic Sans MS", cursive;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--page); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.dim { color: var(--dim); }
+.small { font-size: 12px; }
+
+.app {
+  max-width: 1380px; margin: 0 auto;
+  padding-block: 18px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* 머리 */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 16px; }
+.brand { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
+.brand h1 { margin: 0; font-family: var(--f-hand); font-weight: 400; font-size: 44px; line-height: 0.9; color: var(--tape); letter-spacing: 0.01em; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.modes { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
+.prog { font-size: 11px; color: var(--dim); margin-right: 2px; }
+.stage-nav { display: grid; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: #0f1216; }
+.st-row { display: flex; align-items: center; gap: 3px; }
+.st-lab { width: 30px; flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--dim); text-align: center; }
+.st-b, .lab-b { position: relative; border: 0; background: transparent; border-radius: 4px; cursor: pointer; color: var(--muted); }
+.st-b { width: 34px; height: 26px; font-size: 12px; }
+.st-b.done::after { content: ""; position: absolute; right: 4px; top: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
+.lab-b { padding: 0 14px; height: 38px; font-size: 13px; font-weight: 500; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; }
+.st-b[aria-pressed="true"], .lab-b[aria-pressed="true"] { background: #232a33; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
+.lab-b[aria-pressed="true"] { border-color: var(--line-2); }
+.st-b:hover, .lab-b:hover { color: var(--ink); }
+@media (max-width: 520px) { .st-b { width: 29px; } .st-row { gap: 2px; } .st-lab { width: 26px; } }
+
+.status { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap;
+  margin-bottom: 10px; padding: 9px 12px 9px 14px; border-radius: 6px; background: #241f10; border: 1px solid #5a4a1c; color: #f1e3b5; font-size: 13px; }
+.status b { color: var(--accent); }
+.status-b { display: flex; gap: 6px; }
+
+/* 본문 */
+.game { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
+@media (max-width: 920px) { .game { grid-template-columns: minmax(0, 1fr); } }
+
+.board-col { min-width: 0; position: sticky; top: env(safe-area-inset-top, 0px); }
+@media (max-width: 920px) { .board-col { position: static; } }
+.board-wrap {
+  position: relative; border-radius: 6px; overflow: hidden; background: #12161b;
+  box-shadow: 0 0 0 1px #000, 0 0 0 2px #20262e, 0 24px 48px -24px rgba(0,0,0,0.9);
+}
+#board { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 640; touch-action: none; outline: none; }
+#board:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.board-wrap.dropping-out::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--bad); border-radius: 6px;
+}
+.out-msg {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  background: #2a1714; color: #ffd5cd; border: 1px solid #5a2a24; padding: 5px 12px; border-radius: 4px;
+  font-size: 12px; pointer-events: none; opacity: 0; transition: opacity .15s;
+}
+.board-wrap.dropping-out .out-msg { opacity: 1; }
+.board-foot { margin: 10px 2px 0; color: var(--dim); font-size: 12px; }
+.board-foot b { color: var(--muted); font-weight: 500; }
+
+/* 마스킹 테이프 라벨 */
+.tape {
+  display: inline-block; background: var(--tape); color: var(--tape-ink);
+  font-family: var(--f-hand); font-size: 22px; line-height: 1; padding: 6px 16px 3px;
+  transform: rotate(-1.4deg);
+  clip-path: polygon(0 0, 100% 0, 98.5% 25%, 100% 50%, 98.5% 75%, 100% 100%, 0 100%, 1.5% 75%, 0 50%, 1.5% 25%);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.4));
+}
+.tape-lg { font-size: 27px; padding: 7px 18px 4px; }
+
+.coach {
+  position: absolute; transform: translate(-6%, -100%); pointer-events: none;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+}
+.coach span {
+  background: var(--tape); color: var(--tape-ink); font-family: var(--f-hand);
+  font-size: clamp(15px, 2vw, 21px); line-height: 1; padding: 5px 12px 3px; transform: rotate(-2deg);
+  clip-path: polygon(0 0, 100% 0, 98% 30%, 100% 60%, 98% 100%, 0 100%, 2% 70%, 0 35%);
+  white-space: nowrap;
+}
+.coach::after {
+  content: ""; width: 2px; height: clamp(10px, 2.2vw, 22px); margin-left: 18px;
+  background: linear-gradient(var(--tape), rgba(232,217,160,0));
+  animation: bob 1.4s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(4px); } }
+
+/* 패널 */
+.panel { display: flex; flex-direction: column; gap: 0; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.sec { padding: 16px 18px; border-top: 1px solid var(--line); min-width: 0; }
+.sec:first-child { border-top: 0; }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); }
+.sec-h .small, .sec-h .mono { letter-spacing: 0; font-weight: 400; }
+.mission .brief { margin: 10px 0 0; color: #cdd3db; text-wrap: pretty; }
+.mission .tools { margin: 14px 0 0; font-size: 12.5px; color: var(--ink); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.mission .tools span { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+.mission .brief b { color: var(--ink); font-weight: 700; }
+
+.rds { display: grid; gap: 18px; }
+.rd-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.rd-name { font-family: var(--f-hand); font-size: 19px; line-height: 1; color: var(--tape); }
+.rd-n { font-size: 11px; }
+canvas.spec { display: block; width: 100%; height: 92px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); }
+.meters { display: grid; gap: 10px; margin-top: 12px; }
+.meter .m-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.meter .m-top b { color: var(--ink); font-weight: 600; }
+.m-bar { position: relative; height: 6px; background: #0b0e12; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--line); }
+.m-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bad); border-radius: 3px; transition: width .15s; }
+.meter.ok .m-bar i { background: var(--ok); }
+.m-bar s { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--ink); opacity: .7; }
+.verdict { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+.verdict.ok { color: var(--ok); }
+
+.inv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.part {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px 7px; background: #0f1317; border: 1px solid var(--line); border-radius: 5px;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.part:hover:not(:disabled) { border-color: #4a5462; background: #141a20; }
+.part:active:not(:disabled) { cursor: grabbing; }
+.part:disabled { opacity: .35; cursor: default; }
+.part img { width: 56px; height: 44px; pointer-events: none; }
+.part .pn { font-size: 12px; font-weight: 500; white-space: nowrap; }
+.part .pf { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+.part .pc { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--accent); }
+.part:disabled .pc { color: var(--dim); }
+
+.sel-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.sel-top .mono { font-size: 12px; }
+.rot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.rot-row .ang { flex: 1; text-align: center; font-size: 15px; color: var(--accent); }
+
+.btn {
+  background: #1b2128; border: 1px solid var(--line-2); border-radius: 4px; padding: 8px 14px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: #56606e; background: #212831; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.sm { padding: 6px 10px; font-size: 12px; }
+.btn.ghost { background: transparent; color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { background: #ffd469; border-color: #ffd469; }
+button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#hintBox { flex-basis: 100%; display: grid; gap: 8px; }
+#hintBox:empty { display: none; }
+.hint { margin: 0; display: flex; gap: 10px; font-size: 13px; color: #cdd3db; text-wrap: pretty; }
+.hint .mono { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--tape); color: var(--tape-ink);
+  font-size: 11px; font-weight: 600; display: grid; place-items: center; margin-top: 1px; }
+
+.ctrl { display: grid; gap: 10px; margin-top: 14px; }
+.seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 5px; background: #0f1216; }
+.seg-b { flex: 1; border: 0; background: transparent; padding: 6px 8px; border-radius: 3px; font-size: 12.5px; cursor: pointer; color: var(--muted); }
+.seg-b[aria-pressed="true"] { background: #232a33; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
+.slider { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.slider input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.slider .mono { width: 52px; text-align: right; color: var(--muted); }
+.slider .lab-s { color: var(--muted); width: 48px; flex: none; }
+.sw { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
+
+.phys { color: var(--muted); font-size: 12.5px; }
+.phys summary { cursor: pointer; color: var(--ink); font-size: 13px; font-weight: 500; }
+.phys ul { margin: 10px 0; padding-left: 18px; display: grid; gap: 3px; }
+.phys b { color: #cdd3db; font-weight: 500; margin-right: 6px; }
+.phys p { margin: 8px 0 0; text-wrap: pretty; }
+
+/* 클리어 */
+.clear { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px;
+  background: rgba(5,7,9,0.62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity .25s; }
+.clear.in { opacity: 1; }
+.clear-card { position: relative; width: min(440px, 100%); background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 6px; padding: 22px 22px 18px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); }
+.stamp {
+  position: absolute; right: 18px; top: -18px; transform: rotate(8deg);
+  font-family: var(--f-mono); font-weight: 600; font-size: 20px; letter-spacing: .18em; color: var(--accent);
+  border: 2px solid var(--accent); padding: 4px 10px 4px 14px; border-radius: 3px; background: var(--panel);
+  box-shadow: inset 0 0 0 2px var(--panel), inset 0 0 0 3px var(--accent);
+}
+.clear.in .stamp { animation: stamp .45s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes stamp { from { transform: rotate(8deg) scale(1.8); opacity: 0; } to { transform: rotate(8deg) scale(1); opacity: 1; } }
+.eyebrow { margin: 0; font-size: 11px; letter-spacing: .1em; color: var(--muted); }
+.clear-card h2 { margin: 6px 0 14px; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0 0 18px; }
+.stats dt { overflow-wrap: anywhere; }
+.stats div { border-top: 1px solid var(--line); padding-top: 8px; }
+.stats dt { font-size: 11.5px; color: var(--muted); }
+.stats dd { margin: 2px 0 0; font-size: 16px; color: var(--ink); }
+.clear-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 520px) { .brand h1 { font-size: 36px; } .clear-card { padding: 18px 16px 14px; } .clear-card h2 { font-size: 19px; } .stats { margin-bottom: 14px; } }
+
+/* 확인 창 */
+.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(4,6,8,0.7); opacity: 0; transition: opacity .18s; }
+.modal.in { opacity: 1; }
+.modal-card { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 22px 22px 18px;
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); }
+.modal-card h2 { margin: 0 0 8px; font-size: 19px; line-height: 1.3; text-wrap: balance; }
+.modal-card p { margin: 0 0 18px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-btns .btn { min-width: 84px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal { transition: none; }
+  .coach::after, .clear.in .stamp { animation: none; }
+  .clear, .m-bar i, .out-msg { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>광로 실험실</h1>
+      <p>빛을 꺾고, 나누고, 골라내는 광학 퍼즐</p>
+    </div>
+    <nav class="modes" aria-label="스테이지 선택">
+      <span class="prog mono" id="progress">0 / 20 클리어</span>
+      <div class="stage-nav" id="stageNav"><div class="st-row"><span class="st-lab">기초</span><button class="st-b mono" data-stage="0" title="1. 파란빛만 (프리즘 · 평면거울 · 슬릿)" aria-label="스테이지 1 파란빛만" aria-pressed="true">01</button><button class="st-b mono" data-stage="1" title="2. 잠망경 (평면거울 2개)" aria-label="스테이지 2 잠망경" aria-pressed="false">02</button><button class="st-b mono" data-stage="2" title="3. 바늘구멍 (볼록렌즈)" aria-label="스테이지 3 바늘구멍" aria-pressed="false">03</button><button class="st-b mono" data-stage="3" title="4. 뉴턴식 망원경 (오목거울 · 소형 거울)" aria-label="스테이지 4 뉴턴식 망원경" aria-pressed="false">04</button><button class="st-b mono" data-stage="4" title="5. 빛으로 가득 (오목렌즈 · 평면거울)" aria-label="스테이지 5 빛으로 가득" aria-pressed="false">05</button><button class="st-b mono" data-stage="5" title="6. 두 센서 한 번에 (볼록거울)" aria-label="스테이지 6 두 센서 한 번에" aria-pressed="false">06</button><button class="st-b mono" data-stage="6" title="7. 거울 없이 (프리즘 2개)" aria-label="스테이지 7 거울 없이" aria-pressed="false">07</button><button class="st-b mono" data-stage="7" title="8. 빨강과 초록 나누기 (프리즘 · 평면거울 · 슬릿 2개)" aria-label="스테이지 8 빨강과 초록 나누기" aria-pressed="false">08</button><button class="st-b mono" data-stage="8" title="9. 다시 백색광 (볼록렌즈)" aria-label="스테이지 9 다시 백색광" aria-pressed="false">09</button><button class="st-b mono" data-stage="9" title="10. 빔 확장기 (오목렌즈 · 볼록렌즈)" aria-label="스테이지 10 빔 확장기" aria-pressed="false">10</button></div><div class="st-row"><span class="st-lab">응용</span><button class="st-b mono" data-stage="10" title="11. 보라 레이저 포인터 (프리즘 · 슬릿 · 볼록렌즈)" aria-label="스테이지 11 보라 레이저 포인터" aria-pressed="false">11</button><button class="st-b mono" data-stage="11" title="12. 빛의 삼원색 (볼록렌즈 · 평면거울)" aria-label="스테이지 12 빛의 삼원색" aria-pressed="false">12</button><button class="st-b mono" data-stage="12" title="13. 분광기 (큰 프리즘 · 오목거울)" aria-label="스테이지 13 분광기" aria-pressed="false">13</button><button class="st-b mono" data-stage="13" title="14. 분산 되돌리기 (프리즘 · 평면거울)" aria-label="스테이지 14 분산 되돌리기" aria-pressed="false">14</button><button class="st-b mono" data-stage="14" title="15. 반사식 빔 확장기 (볼록거울 · 오목거울)" aria-label="스테이지 15 반사식 빔 확장기" aria-pressed="false">15</button><button class="st-b mono" data-stage="15" title="16. 무지개 넓히기 (프리즘 · 볼록거울)" aria-label="스테이지 16 무지개 넓히기" aria-pressed="false">16</button><button class="st-b mono" data-stage="16" title="17. 손전등 평행광 (볼록렌즈 · 평면거울)" aria-label="스테이지 17 손전등 평행광" aria-pressed="false">17</button><button class="st-b mono" data-stage="17" title="18. 케플러 망원경 (대물렌즈 · 접안렌즈 · 평면거울)" aria-label="스테이지 18 케플러 망원경" aria-pressed="false">18</button><button class="st-b mono" data-stage="18" title="19. 전반사 초점 (프리즘 · 볼록렌즈)" aria-label="스테이지 19 전반사 초점" aria-pressed="false">19</button><button class="st-b mono" data-stage="19" title="20. 두 실험 동시에 (프리즘 · 슬릿 · 볼록렌즈 · 평면거울 2개)" aria-label="스테이지 20 두 실험 동시에" aria-pressed="false">20</button></div></div>
+      <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
+    </nav>
+  </header>
+
+  <main class="game">
+    <div class="board-col">
+      <div class="status" id="status" hidden="">
+        <span><b>정답 배치</b>를 보여주고 있어요. 부품을 움직여 보며 원리를 살펴보세요.</span>
+        <span class="status-b"><button class="btn sm" id="statusRetry">다시 도전</button><button class="btn sm primary" id="statusNext">다음 스테이지</button></span>
+      </div>
+      <div class="board-wrap" id="boardWrap">
+        <canvas id="board" tabindex="0" aria-label="광학 실험대. 부품을 끌어 놓고 돌려서 빛의 경로를 바꿉니다." width="983" height="629"></canvas>
+        <div class="coach" id="coach" style="left: 15%; top: 23.4375%;"><span>프리즘을 이 빛줄기 위로 끌어 오세요</span></div>
+        <div class="out-msg">여기서 놓으면 부품함으로 돌아가요</div>
+        <div class="clear" id="clear" hidden="" role="dialog" aria-modal="true" aria-labelledby="clearTitle">
+          <div class="clear-card">
+            <div class="stamp">CLEAR</div>
+            <p class="eyebrow mono" id="clearEyebrow">STAGE 01 · 실험 기록</p>
+            <h2 id="clearTitle">파란빛만 골라냈어요</h2>
+            <dl class="stats" id="clearStats"></dl>
+            <div class="clear-btns">
+              <button class="btn ghost" id="clearKeep">계속 다듬기</button>
+              <button class="btn" id="clearRetry">다시 하기</button>
+              <button class="btn primary" id="clearNext">다음 스테이지</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="board-foot">정반 구멍 간격 25 mm · <b>노란 손잡이</b>를 끌면 회전, 부품을 판 밖으로 끌어내면 회수 · 볼트 표시는 고정 부품</p>
+    </div>
+    <aside class="panel" id="panel" aria-label="실험 노트">
+        <section class="sec mission">
+          <div class="tape tape-lg">스테이지 1 · 파란빛만</div>
+          <p class="tools"><span>도구</span>프리즘 · 평면거울 · 슬릿</p>
+          <p class="brief">백색광에서 <b>파란빛(450–495 nm)</b>만 골라 센서에 보내세요. 다른 색이 섞이면 통과하지 못해요.</p>
+        </section>
+      <section class="sec readout">
+        <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount">빛 없음</span></div>
+        <div class="rds">
+          
+            <div class="rd" data-i="0">
+              
+              <canvas class="spec" aria-label="센서가 받은 빛의 스펙트럼" width="292" height="92" style="height: 92px;"></canvas>
+              <div class="meters">
+          <div class="meter ">
+            <div class="m-top"><span>파랑 세기</span><span class="mono"><b>0%</b> / 기준 50%</span></div>
+            <div class="m-bar"><i style="width:0%"></i><s style="left:50%"></s></div>
+          </div>
+          <div class="meter ">
+            <div class="m-top"><span>파랑 순도</span><span class="mono"><b>0%</b> / 기준 90%</span></div>
+            <div class="m-bar"><i style="width:0%"></i><s style="left:90%"></s></div>
+          </div><p class="verdict ">센서에 닿은 빛이 아직 없어요.</p></div>
+            </div>
+        </div>
+      </section>
+      <section class="sec">
+        <div class="sec-h"><span>부품함</span><span class="dim small">끌어서 놓거나 눌러서 꺼내기</span></div>
+        <div class="inv" id="inv" style="grid-template-columns: repeat(3, minmax(0px, 1fr));"><button class="part" data-key="prism" aria-label="프리즘 60°, 1개">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAAFNUlEQVR4AeyYW28TRxTHz673Yu9ySRRERUF9qFSeeaig8NBP0I/QfgNiHvra79GHhkJIUFK1fJEKVMqlaiGo8FBwEif2esbenZ3L6RnjiDaNiy+7boNizdHZmfFefud/5uzFhXf8dwR42AWeqYJ3G7hobZZBmxng/Vd40QG4Zs1uzwpyZoDKgUsEtU72i3ZgkfxM2kwAbVpa5bTWD8luE9nlWak4E0BAuGoMrB8PKhvHncoGAT4mFevkS2+lA/bVc6AiMrESVlTkVlWEMv8KEa7YOSj5VzpgPzUNrM0fc6NUeVwp5DU/iAya26RsvexULRWwrxBiJfbkndBzoiYTvMkMB5QIUq0D4iNK1VILTmmAFs6qh+Dc8lzfz6TH/SBEgyEK8HkUBBHNrSJAqQWnNEC7tLQ2t0MX7uQaxGZH8DQTBCiwxYVAUrFagaf0v4dlqlgKoFWPLvyaUO6yBxALDbkxIQZWwYG3KlY9iHMJt0jFK/fpQYD2KbyVAugALJJ6q5HOjyXdbrfRzHIhEkiSDPZ8o5nknSTvurL7TGtYIRXrhdPRAQsHtOqRIm6b5csnIidK8grzA0C7/vb7Zm7YQhREUog12uey3ZeuqdBWOCBVxmtIihzzVNzmyHtphiYFHOa3uODzrhv10vxLq3zRqVooYF8BhAeo8h9OxWG0RQoFYRVNCDjMt3OPgUdhMfjYGCy84IwH+C/JY+FIgbpBvH8ycKJWjtwgUNV8u21lhi+EbiSUWaZTfFKkioUBEtxFevy6paX6ngvkSUezgGg12UHejlmz83lqBPqINaOfUlAeaAcKKziFAFr1bORfbKU35mInep5oxg2QhIB6iN8/32gbHtG+UsMNKjiFqVgIIKlXJ5DlD07VYk6PYkGV1hylZ1CtYdD3b+9nKQqe+3zOy5/Tm8dNUnGVgjZ1mxrQqkcRd7pJtjrny+hlWzPTRaSCgabbG/jR+i83e8x3Hd8eCxF+tseelnBqQKueUeamFzjBLqH1Blc0qd/Y0a3Tc27cE/omHXtx2oIzFaCNsCK4VPDvYs/xnrQYU7yHHdPDSX1zmwsBgGyXPaIssAVnqreNiQEtHEW4X+1OhbU4k5iHpoYhrbtp/c6u4WcWoljk5jolxFQFZ2JAelm9SurdUClbb6eGPW8mTFHFVLQAp/XbTAvEHB2pniDdV+mDVT+QBDt2mwiwr54D7h87vaWFai3e7EmmahGSeKj0wE/Z35QVtnDCiaU0K5Qpl+w5YYLfRIB0nrpU5tuzoRcn3ZS1E0CVcOx7PfA09vf+YHzE+cYrLZKWYZHq/WbPRZATrcWxAQeRdEKZry1QtXvGXVaNEKtRTPZXb7et7R/f69s5a3v9/R7xGZcsCALs8GyZbhs/3WvgCgV3rDYW4KBk15UxS/SNxe/0DKMnDyzTXtAj37m4Emc5LNH9duyCMxYgLfZLSprrQZav2ar5cFtyYJ3XEf2Hfz087fzmy1Zuj8S3m4+sivSEM1aqjgzYT03EeiblveM1FW/QJzLZSnBHIcoDfTJkfO//o8///qrDzp2tzndT8Q1V1bFUHBnQLnKpcCkKza/0eo4XPjw5/+nHp9/7jKxs/xGdK/ADtOe216DQjHzbGAmwrx7liTTmbqac842u+36ja8hm6zPln5cmv+u47si3jZEArXrEB3HofR2HVbL/1tO10DsKXB0UPeoObyMBVhA+n8BK3Yc+R34xHOvNzEiAF844P/5f7Q3KwVsjAR686+EYPQI8HDoNv8ojBYfH5nDMvPMK/gkAAP//Gg9JAwAAAAZJREFUAwBJlU+zji+3PgAAAABJRU5ErkJggg==" alt="" width="56" height="44"><span class="pn">프리즘</span><span class="pf mono">60°</span><span class="pc mono">×1</span></button><button class="part" data-key="mirror" aria-label="평면거울 100 mm, 1개">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAABr0lEQVR4AeyYzUrDQBDHt0naJpFSa4US9GF8AI++gYIXzx48CYIHzyL4AD5Vjh6qNGmUmmza5kNHCJRtEZLs7uCyhSHdpZmd//ymwyQGkfDxw/LYn5Un/msQgD08vTxeXd/dnp6dX4g+XopAa0WsrpGP91zn18LZ2+U8DG4Ko3CVEMiKoEls5XnObgtZSyHIRj7cH7FbwtYoAt+nU9KznY4wVRuOUQQORyOSLBbFRhzCvqIIXKaU9B2FCQKuPFvDRbihENRNhiNXHIK6yfBDiEIQwtdNBrLAwVAIKj/J2I6t9iQDlWd1LXVn0ZSmoFGK1fsPcgpp4nkkW2clJ3d/ukERCE3GHQyknC3lEDbFusmwGWmxRiGom0wLYuytKAR1k2ExtFijEIR49SQDWeBgKAT1JMOBXOUChaCeZKr0c7iiENSTDAdylQsUgp8fEXEHCj8uQXZXKf33D7ygY6f1bWfnvohNnBKNImJaXRF6tnyiCIRJZkkVLlHdZLYKrfkGSokq32SKosxM02yOpcadUghmvZ/3vIUZfsXJPE5oOPGOng/Gh/cG6dAasTb66TcAAAD//+gbStwAAAAGSURBVAMAB3ueEm9qAroAAAAASUVORK5CYII=" alt="" width="56" height="44"><span class="pn">평면거울</span><span class="pf mono">100 mm</span><span class="pc mono">×1</span></button><button class="part" data-key="slit" aria-label="슬릿 폭 30, 1개">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAABpklEQVR4AexYMUvDYBC9JqVKKyK4qLXSNsXF0clB8B84KDjp4tJRCsXRbiJC8T85ODm6lDYRa1VcFLEFS0z1li5JIJLesy0XePDl+L53996DwBeDQM/eYbm5e3D8xtg/KjdAbQkm0DTN2faDs8BIUMKdOoEsqGitU75QIs/zPvgdAViCLKbX61K//0VmMrnK7whABb48d+ip00boGvaAChx2BS5UINBskVaaoIitQFJNEGi2SCtNUMRWIKkmCDRbpNW/JDiY1tuEVbSIIRJVCOnfEgwhiVIu5PNOpXLSZZSs4muUM6PYAxN4Uatub21uzDHOz6o7oxg+CgdMYJRhJPaoQAlXkZyaINJtiV6wBE9rl9c3t3efDF5LiAnihAm0bXuxXr/KMHgdNIxEDSYwYRjzLbtFDAkhYZwwgWEDSNdVoLTD0vyaoITD/MGR4A3i1ASDXJmkmiYYI62xOKoJjkUMMYbQBGOY5zu6ks3R0nLWV5csQBNMpWYonc5I6vFxG76KUIH/Zt87TbJbDfp23UehNj5anEAaJHNrhXeG8Xs39E0iVPgBAAD//9GPpcYAAAAGSURBVAMA36dbL+b8MIIAAAAASUVORK5CYII=" alt="" width="56" height="44"><span class="pn">슬릿</span><span class="pf mono">폭 30</span><span class="pc mono">×1</span></button></div>
+      </section>
+      <section class="sec" id="selSec">
+        <div class="sec-h"><span>선택한 부품</span></div>
+        <div id="selBody" data-id=""><p class="dim small">판 위의 부품을 누르면 여기서 각도와 위치를 정밀하게 조정할 수 있어요.</p></div>
+      </section>
+      <section class="sec actions">
+        <button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>
+        <div id="hintBox"></div>
+      </section>
+      <details class="sec phys">
+        <summary>조작법과 이 실험대의 물리</summary>
+        <ul>
+          <li><b>이동</b> 부품을 끌기 · 방향키 1 mm (Shift 10 mm)</li>
+          <li><b>회전</b> 노란 손잡이 끌기 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
+          <li><b>회수</b> 판 밖으로 끌어내기 · Delete</li>
+        </ul>
+        <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
+        <p>프리즘 유리는 색 분리가 잘 보이도록 분산을 과장했어요. n = 1.67(400 nm) ~ 1.50(700 nm). 렌즈는 분산이 작은 유리(n ≈ 1.52)예요. 렌즈와 곡면 거울의 초점거리 f는 부품함에 적혀 있어요.</p>
+        <p>회절은 다루지 않는 기하광학 모형입니다. 볼트 표시가 있는 부품은 정반에 고정되어 움직일 수 없어요.</p>
+      </details></aside>
+  </main>
+</div>
+<div class="modal" id="giveup" hidden="" role="dialog" aria-modal="true" aria-labelledby="giveTitle" aria-describedby="giveDesc">
+  <div class="modal-card">
+    <h2 id="giveTitle">미션을 포기하시겠습니까?</h2>
+    <p id="giveDesc">정답 배치가 판 위에 놓여요. 지금 놓은 부품은 부품함으로 돌아가고, 이 스테이지는 클리어로 기록되지 않아요.</p>
+    <div class="modal-btns">
+      <button class="btn" id="giveNo">아니요</button>
+      <button class="btn primary" id="giveYes">예</button>
+    </div>
+  </div>
+</div>
+<script>
+
+/* ===== 광학 엔진: 2D 기하광학 광선 추적 =====
+   좌표: 월드 1 단위 = 1 mm, y는 아래쪽이 +.
+   모든 부품은 국소 좌표의 기본 도형(선분, 원호)으로 정의되고 회전·이동 후 추적된다. */
+const OPT = (() => {
+  const W = 1000, H = 640;
+
+  // 코시 분산식 n(λ) = A + B/λ²  (λ: µm)
+  // flint: 게임용으로 분산을 과장한 유리 (n 400nm = 1.67, 700nm = 1.50)
+  // crown: 실제 크라운 유리에 가까운 저분산 유리 (렌즈용)
+  const MAT = {
+    flint: { A: 1.4176, B: 0.04039 },
+    crown: { A: 1.5046, B: 0.0042 },
+  };
+  const nOf = (mat, nm) => { const l = nm / 1000; return mat.A + mat.B / (l * l); };
+
+  const LENS_N = nOf(MAT.crown, 550);
+
+  // ---- 부품 카탈로그 (국소 좌표) ----
+  // 기본 도형: {k:'s', ax,ay,bx,by, nx,ny, role} / {k:'a', cx,cy,r,a0,span, ns, role}
+  // role: glass(바깥쪽 법선) · mirror(반사면 법선) · sensor(감지면 법선) · absorb
+  function segPoly(pts, role, out) {
+    // 다각형 꼭짓점 → 바깥 법선을 가진 선분
+    let gx = 0, gy = 0; pts.forEach(p => { gx += p[0]; gy += p[1]; }); gx /= pts.length; gy /= pts.length;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      let nx = b[1] - a[1], ny = -(b[0] - a[0]);
+      const L = Math.hypot(nx, ny); nx /= L; ny /= L;
+      const mx = (a[0] + b[0]) / 2 - gx, my = (a[1] + b[1]) / 2 - gy;
+      if (nx * mx + ny * my < 0) { nx = -nx; ny = -ny; }
+      out.push({ k: 's', ax: a[0], ay: a[1], bx: b[0], by: b[1], nx, ny, role });
+    }
+  }
+  const rect = (x0, y0, x1, y1, role, out) => segPoly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], role, out);
+
+  function lensGeom(f, h) {
+    const R = 2 * Math.abs(f) * (LENS_N - 1);
+    const sag = R - Math.sqrt(R * R - h * h);
+    const phi = Math.asin(h / R);
+    return { R, sag, phi };
+  }
+
+  const PARTS = {
+    prism: {
+      name: '프리즘', short: '프리즘', radius: 64,
+      defaults: { side: 100 },
+      build(p) {
+        const s = p.side, a = s / Math.sqrt(3);
+        const out = []; segPoly([[0, -a], [s / 2, a / 2], [-s / 2, a / 2]], 'glass', out);
+        return { prims: out, mat: MAT.flint, box: [-s / 2, -a, s / 2, a / 2] };
+      },
+    },
+    lensConvex: {
+      name: '볼록렌즈', short: '볼록렌즈', radius: 58,
+      defaults: { f: 140, h: 48 },
+      build(p) {
+        const { R, sag, phi } = lensGeom(p.f, p.h), e = 3, t = 2 * sag + e;
+        const out = [
+          { k: 'a', cx: t / 2 - R, cy: 0, r: R, a0: -phi, span: 2 * phi, ns: 1, role: 'glass' },
+          { k: 'a', cx: R - t / 2, cy: 0, r: R, a0: Math.PI - phi, span: 2 * phi, ns: 1, role: 'glass' },
+          { k: 's', ax: -e / 2, ay: -p.h, bx: e / 2, by: -p.h, nx: 0, ny: -1, role: 'glass' },
+          { k: 's', ax: -e / 2, ay: p.h, bx: e / 2, by: p.h, nx: 0, ny: 1, role: 'glass' },
+        ];
+        return { prims: out, mat: MAT.crown, box: [-t / 2, -p.h, t / 2, p.h], geo: { R, sag, t, e } };
+      },
+    },
+    lensConcave: {
+      name: '오목렌즈', short: '오목렌즈', radius: 58,
+      defaults: { f: -140, h: 48 },
+      build(p) {
+        const { R, sag, phi } = lensGeom(p.f, p.h), c0 = 4, ex = c0 / 2 + sag;
+        const out = [
+          { k: 'a', cx: c0 / 2 + R, cy: 0, r: R, a0: Math.PI - phi, span: 2 * phi, ns: -1, role: 'glass' },
+          { k: 'a', cx: -c0 / 2 - R, cy: 0, r: R, a0: -phi, span: 2 * phi, ns: -1, role: 'glass' },
+          { k: 's', ax: -ex, ay: -p.h, bx: ex, by: -p.h, nx: 0, ny: -1, role: 'glass' },
+          { k: 's', ax: -ex, ay: p.h, bx: ex, by: p.h, nx: 0, ny: 1, role: 'glass' },
+        ];
+        return { prims: out, mat: MAT.crown, box: [-ex, -p.h, ex, p.h], geo: { R, sag, c0 } };
+      },
+    },
+    mirror: {
+      name: '평면거울', short: '평면거울', radius: 56,
+      defaults: { h: 50 },
+      build(p) {
+        return { prims: [{ k: 's', ax: 0, ay: -p.h, bx: 0, by: p.h, nx: -1, ny: 0, role: 'mirror' }], box: [-4, -p.h, 8, p.h] };
+      },
+    },
+    mirrorConcave: {
+      name: '오목거울', short: '오목거울', radius: 56,
+      defaults: { f: 140, h: 50 },
+      build(p) {
+        const R = 2 * p.f, phi = Math.asin(p.h / R);
+        return { prims: [{ k: 'a', cx: -R, cy: 0, r: R, a0: -phi, span: 2 * phi, ns: -1, role: 'mirror' }], box: [-8, -p.h, 10, p.h], geo: { R, phi } };
+      },
+    },
+    mirrorConvex: {
+      name: '볼록거울', short: '볼록거울', radius: 56,
+      defaults: { f: 140, h: 50 },
+      build(p) {
+        const R = 2 * p.f, phi = Math.asin(p.h / R);
+        return { prims: [{ k: 'a', cx: R, cy: 0, r: R, a0: Math.PI - phi, span: 2 * phi, ns: 1, role: 'mirror' }], box: [-6, -p.h, 12, p.h], geo: { R, phi } };
+      },
+    },
+    slit: {
+      name: '슬릿', short: '슬릿', radius: 70,
+      defaults: { len: 130, gap: 22, th: 6 },
+      build(p) {
+        const out = [], hl = p.len / 2, hg = p.gap / 2, ht = p.th / 2;
+        rect(-ht, -hl, ht, -hg, 'absorb', out);
+        rect(-ht, hg, ht, hl, 'absorb', out);
+        return { prims: out, box: [-ht, -hl, ht, hl] };
+      },
+    },
+    // ---- 고정 장치 ----
+    source: {
+      name: '광원', radius: 40,
+      defaults: { spectrum: 'white', lambda: 470, width: 0, rays: 1 },
+      build() {
+        const out = []; rect(-50, -17, 0, 17, 'absorb', out);
+        return { prims: out, box: [-50, -17, 0, 17] };
+      },
+    },
+    sensor: {
+      name: '센서', radius: 50,
+      defaults: { len: 80 },
+      build(p) {
+        const hl = p.len / 2, out = [{ k: 's', ax: 0, ay: -hl, bx: 0, by: hl, nx: -1, ny: 0, role: 'sensor' }];
+        out.push({ k: 's', ax: 0, ay: -hl, bx: 20, by: -hl, nx: 0, ny: -1, role: 'absorb' });
+        out.push({ k: 's', ax: 20, ay: -hl, bx: 20, by: hl, nx: 1, ny: 0, role: 'absorb' });
+        out.push({ k: 's', ax: 20, ay: hl, bx: 0, by: hl, nx: 0, ny: 1, role: 'absorb' });
+        return { prims: out, box: [0, -hl, 20, hl] };
+      },
+    },
+    wall: {
+      name: '차광벽', radius: 0,
+      defaults: { w: 100, h: 20 },
+      build(p) {
+        const out = []; rect(-p.w / 2, -p.h / 2, p.w / 2, p.h / 2, 'absorb', out);
+        return { prims: out, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
+      },
+    },
+  };
+
+  // 부품 하나의 월드 좌표 기본 도형
+  function worldPrims(obj) {
+    const def = PARTS[obj.type];
+    const params = Object.assign({}, def.defaults, obj.params || {});
+    const g = def.build(params);
+    const th = obj.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    const tx = (x, y) => [obj.x + x * c - y * s, obj.y + x * s + y * c];
+    const prims = g.prims.map(p => {
+      if (p.k === 's') {
+        const [ax, ay] = tx(p.ax, p.ay), [bx, by] = tx(p.bx, p.by);
+        return { k: 's', ax, ay, bx, by, nx: p.nx * c - p.ny * s, ny: p.nx * s + p.ny * c, role: p.role, obj, mat: g.mat };
+      }
+      const [cx, cy] = tx(p.cx, p.cy);
+      return { k: 'a', cx, cy, r: p.r, a0: p.a0 + th, span: p.span, ns: p.ns, role: p.role, obj, mat: g.mat };
+    });
+    return { prims, geom: g, params };
+  }
+
+  const TAU = Math.PI * 2;
+  const EPS = 1e-6;
+
+  function nearestHit(prims, px, py, dx, dy) {
+    let best = Infinity, hit = null;
+    for (let i = 0; i < prims.length; i++) {
+      const p = prims[i];
+      if (p.k === 's') {
+        const ex = p.bx - p.ax, ey = p.by - p.ay;
+        const den = dx * ey - dy * ex;
+        if (Math.abs(den) < 1e-12) continue;
+        const wx = p.ax - px, wy = p.ay - py;
+        const t = (wx * ey - wy * ex) / den;
+        const u = (wx * dy - wy * dx) / den;
+        if (t > EPS && t < best && u >= -1e-9 && u <= 1 + 1e-9) { best = t; hit = { p, t, nx: p.nx, ny: p.ny }; }
+      } else {
+        const ox = px - p.cx, oy = py - p.cy;
+        const b = ox * dx + oy * dy, cc = ox * ox + oy * oy - p.r * p.r;
+        const disc = b * b - cc;
+        if (disc < 0) continue;
+        const sq = Math.sqrt(disc);
+        for (const t of [-b - sq, -b + sq]) {
+          if (t <= EPS || t >= best) continue;
+          const qx = ox + dx * t, qy = oy + dy * t;
+          let ang = Math.atan2(qy, qx) - p.a0;
+          ang = ((ang % TAU) + TAU) % TAU;
+          if (ang <= p.span + 1e-9) {
+            best = t;
+            hit = { p, t, nx: p.ns * qx / p.r, ny: p.ns * qy / p.r };
+          }
+        }
+      }
+    }
+    return hit;
+  }
+
+  function boardExit(px, py, dx, dy) {
+    let t = Infinity;
+    if (dx > 1e-12) t = Math.min(t, (W - px) / dx); else if (dx < -1e-12) t = Math.min(t, -px / dx);
+    if (dy > 1e-12) t = Math.min(t, (H - py) / dy); else if (dy < -1e-12) t = Math.min(t, -py / dy);
+    return Math.max(0, t === Infinity ? 0 : t);
+  }
+
+  // 백색광 표본 파장
+  function spectrumOf(src) {
+    const p = src.params || {};
+    const spec = p.spectrum || 'white';
+    if (spec === 'mono') return [p.lambda || 550];
+    if (Array.isArray(spec)) return spec;
+    const step = (p.rays || 1) > 1 ? 10 : 5;
+    const out = []; for (let l = 400; l <= 700; l += step) out.push(l);
+    return out;
+  }
+
+  /* 장면 추적.
+     objs: [{type,x,y,rot,params,hidden}] (광원 포함)
+     반환: { paths:[{lambda,I,pts,end}], sensorHits: Map(sensorObj → [{lambda,I,u}]), emitted: Map(src → [lambda]) } */
+  function trace(objs) {
+    const prims = [];
+    const sources = [];
+    for (const o of objs) {
+      if (o.hidden) continue;
+      const wp = worldPrims(o);
+      for (const p of wp.prims) prims.push(p);
+      if (o.type === 'source') sources.push({ o, params: wp.params });
+    }
+    const paths = [], sensorHits = new Map(), emitted = [];
+    sources.forEach(({ o, params }, si) => {
+      const th = o.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+      const lambdas = spectrumOf(o);
+      const n = Math.max(1, params.rays | 0), w = params.width || 0;
+      for (let i = 0; i < n; i++) {
+        const t = n > 1 ? i / (n - 1) - 0.5 : 0;
+        // fan > 0: 한 점에서 부채꼴로 퍼지는 점광원, 아니면 폭 w의 평행광
+        const fan = (params.fan || 0) * Math.PI / 180;
+        const off = fan ? 0 : t * w;
+        const a = th + t * fan, rc = Math.cos(a), rs = Math.sin(a);
+        const ox = o.x + 0.5 * c - off * s, oy = o.y + 0.5 * s + off * c;
+        lambdas.forEach((lam, li) => {
+          emitted.push(lam);
+          const path = traceRay(prims, ox, oy, rc, rs, lam, 1, sensorHits);
+          path.si = si; path.oi = i; path.li = li; path.nO = n; path.nL = lambdas.length;
+          paths.push(path);
+        });
+      }
+    });
+    return { paths, sensorHits, emitted };
+  }
+
+  function traceRay(prims, px, py, dx, dy, lam, I, sensorHits) {
+    const pts = [px, py], tags = [null];
+    let end = { type: 'edge' };
+    for (let bounce = 0; bounce < 80; bounce++) {
+      const hit = nearestHit(prims, px, py, dx, dy);
+      if (!hit) {
+        const t = boardExit(px, py, dx, dy);
+        const ex = px + dx * t, ey = py + dy * t;
+        pts.push(ex, ey);
+        tags.push(ex < 0.01 ? 'L' : ex > W - 0.01 ? 'R' : ey < 0.01 ? 'T' : 'B');
+        end = { type: 'edge' };
+        break;
+      }
+      const qx = px + dx * hit.t, qy = py + dy * hit.t;
+      pts.push(qx, qy); tags.push(hit.p);
+      const role = hit.p.role;
+      const dn = dx * hit.nx + dy * hit.ny;
+      if (role === 'absorb') { end = { type: 'absorb', x: qx, y: qy }; break; }
+      if (role === 'sensor') {
+        if (dn < 0) {
+          const s = hit.p, ex = s.bx - s.ax, ey = s.by - s.ay;
+          const u = ((qx - s.ax) * ex + (qy - s.ay) * ey) / (ex * ex + ey * ey);
+          if (!sensorHits.has(s.obj)) sensorHits.set(s.obj, []);
+          sensorHits.get(s.obj).push({ lambda: lam, I, u, dx, dy });
+          end = { type: 'sensor', x: qx, y: qy, obj: s.obj };
+        } else end = { type: 'absorb', x: qx, y: qy };
+        break;
+      }
+      if (role === 'mirror') {
+        if (dn >= 0) { end = { type: 'absorb', x: qx, y: qy }; break; }
+        dx -= 2 * dn * hit.nx; dy -= 2 * dn * hit.ny;
+      } else if (role === 'glass') {
+        const ng = nOf(hit.p.mat, lam);
+        let fx = hit.nx, fy = hit.ny, n1, n2;
+        if (dn < 0) { n1 = 1; n2 = ng; } else { n1 = ng; n2 = 1; fx = -fx; fy = -fy; }
+        const eta = n1 / n2;
+        const cosi = -(dx * fx + dy * fy);
+        const k = 1 - eta * eta * (1 - cosi * cosi);
+        if (k < 0) { // 전반사
+          dx += 2 * cosi * fx; dy += 2 * cosi * fy;
+        } else {
+          const a = eta * cosi - Math.sqrt(k);
+          dx = eta * dx + a * fx; dy = eta * dy + a * fy;
+        }
+      }
+      const L = Math.hypot(dx, dy); dx /= L; dy /= L;
+      px = qx + dx * 1e-3; py = qy + dy * 1e-3;
+    }
+    return { lambda: lam, I, pts, tags, end };
+  }
+
+  // 파장 → 색 (sRGB 근사)
+  function wlRGB(l) {
+    let r = 0, g = 0, b = 0;
+    if (l < 440) { r = -(l - 440) / 60; b = 1; }
+    else if (l < 490) { g = (l - 440) / 50; b = 1; }
+    else if (l < 510) { g = 1; b = -(l - 510) / 20; }
+    else if (l < 580) { r = (l - 510) / 70; g = 1; }
+    else if (l < 645) { r = 1; g = -(l - 645) / 65; }
+    else r = 1;
+    let f = 1;
+    if (l < 420) f = 0.35 + 0.65 * (l - 380) / 40;
+    else if (l > 680) f = 0.35 + 0.65 * (750 - l) / 70;
+    const gm = 0.8;
+    return [Math.round(255 * Math.pow(r * f, gm)), Math.round(255 * Math.pow(g * f, gm)), Math.round(255 * Math.pow(b * f, gm))];
+  }
+
+  const BANDS = [
+    { name: '보라', min: 400, max: 445 },
+    { name: '파랑', min: 450, max: 495 },
+    { name: '초록', min: 500, max: 565 },
+    { name: '노랑', min: 570, max: 590 },
+    { name: '주황', min: 595, max: 620 },
+    { name: '빨강', min: 625, max: 700 },
+  ];
+  const bandName = l => (BANDS.find(b => l >= b.min && l <= b.max) || { name: '' }).name;
+
+  return { W, H, MAT, PARTS, nOf, worldPrims, trace, wlRGB, BANDS, bandName, spectrumOf };
+})();
+
+
+
+</script>
+<script>
+
+/* ===== 스테이지와 판정 ===== */
+const GAME = (() => {
+  const BANDS = OPT.BANDS;
+
+  /* 센서 하나의 목표를 판정한다.
+     checks: band(대역 세기) · purity(순도) · power(전체 빛 중 도달 비율)
+             coverage(센서 길이 중 비친 범위) · parallel(광선 사이 최대 각도 차) · white(여섯 색 모두) */
+  function evalGoal(goal, hits, emitted) {
+    const total = hits.reduce((s, h) => s + h.I, 0);
+    const inB = (l, b) => l >= b[0] && l <= b[1];
+    const bandStrength = b => {
+      const e = emitted.filter(l => inB(l, b)).length;
+      return e ? hits.filter(h => inB(h.lambda, b)).reduce((s, h) => s + h.I, 0) / e : 0;
+    };
+    const out = [];
+    for (const c of goal.checks) {
+      let v = 0, ok = false, r;
+      switch (c.kind) {
+        case 'band':
+          v = bandStrength(c.band); ok = v >= c.min;
+          r = { label: `${c.name} 세기`, frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        case 'purity': {
+          v = total ? hits.filter(h => inB(h.lambda, c.band)).reduce((s, h) => s + h.I, 0) / total : 0;
+          ok = total > 0 && v >= c.min;
+          r = { label: `${c.name} 순도`, frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        }
+        case 'power':
+          v = emitted.length ? total / emitted.length : 0; ok = v >= c.min - 1e-9;
+          r = { label: c.label || '도달한 빛', frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        case 'coverage': {
+          if (hits.length > 1) { const us = hits.map(h => h.u); v = Math.max(...us) - Math.min(...us); }
+          ok = v >= c.min;
+          r = { label: '센서를 비춘 범위', frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        }
+        case 'parallel': {
+          let spread = Infinity;
+          if (hits.length > 1) {
+            const as = hits.map(h => Math.atan2(h.dy, h.dx));
+            const m = as[0];
+            const rel = as.map(a => { let d = a - m; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; });
+            spread = (Math.max(...rel) - Math.min(...rel)) * 180 / Math.PI;
+          }
+          ok = spread <= c.max;
+          // 막대: 기준의 3배 각도를 0, 0°를 가득으로 본다
+          const f = spread === Infinity ? 0 : Math.max(0, 1 - spread / (3 * c.max));
+          r = { label: '광선 평행도', frac: f, need: 2 / 3, text: spread === Infinity ? '—' : `${spread.toFixed(1)}°`, needText: `기준 ≤ ${c.max.toFixed(1)}°` };
+          v = spread;
+          break;
+        }
+        case 'white': {
+          const each = BANDS.map(b => bandStrength([b.min, b.max]));
+          v = Math.min(...each); ok = v >= c.min;
+          const weakest = BANDS[each.indexOf(v)].name;
+          r = { label: `여섯 색 모두 (가장 약한 색: ${weakest})`, frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        }
+      }
+      r.ok = ok; r.kind = c.kind; r.value = v;
+      out.push(r);
+    }
+    return { checks: out, ok: out.every(x => x.ok), total };
+  }
+  const pct = v => `${Math.round(v * 100)}%`;
+
+  const W45 = Math.SQRT1_2;
+  const DEG = Math.PI / 180;
+
+  // 빛의 진행 방향 dir(°)에 수직인 차광벽 두 장 사이로 폭 gap의 바늘구멍을 만든다
+  function pinhole(px, py, dir, gap, half = 110, th = 12) {
+    const a = (dir + 90) * DEG, ux = Math.cos(a), uy = Math.sin(a), off = gap / 2 + half / 2;
+    return [
+      { type: 'wall', x: px + ux * off, y: py + uy * off, rot: dir + 90, params: { w: half, h: th } },
+      { type: 'wall', x: px - ux * off, y: py - uy * off, rot: dir + 90, params: { w: half, h: th } },
+    ];
+  }
+  // (px,py)에서 dir 방향으로 dist만큼 뒤에, 빛을 마주 보는 센서
+  function behind(px, py, dir, dist, len, label, goal) {
+    return { type: 'sensor', x: px + Math.cos(dir * DEG) * dist, y: py + Math.sin(dir * DEG) * dist, rot: dir, params: { len }, label, goal };
+  }
+
+  const STAGES = [
+    {
+      id: 1, title: '파란빛만', tools: '프리즘 · 평면거울 · 슬릿',
+      clearTitle: '백색광에서 파란빛만 골라냈어요',
+      brief: '백색광에서 <b>파란빛(450–495 nm)</b>만 골라 센서에 보내세요. 다른 색이 섞이면 통과하지 못해요.',
+      fixed: [
+        { type: 'source', x: 70, y: 190, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'wall', x: 810, y: 410, rot: 0, params: { w: 380, h: 20 } },
+        { type: 'wall', x: 988, y: 190, rot: 0, params: { w: 18, h: 70 } },
+        { type: 'sensor', x: 930, y: 530, rot: 0, params: { len: 100 }, label: '센서',
+          goal: { name: '파랑', band: [450, 495], checks: [
+            { kind: 'band', name: '파랑', band: [450, 495], min: 0.5 },
+            { kind: 'purity', name: '파랑', band: [450, 495], min: 0.9 }] } },
+      ],
+      inventory: { prism: 1, mirror: 1, slit: 1 },
+      partParams: { slit: { gap: 30 } },
+      coach: { x: 150, y: 150, text: '프리즘을 이 빛줄기 위로 끌어 오세요' },
+      hints: [
+        '프리즘을 빛줄기 위에 놓고 돌려 보세요. 색마다 꺾이는 정도가 달라서 무지개 부채꼴이 생깁니다.',
+        '센서는 차광벽 아래 칸에 숨어 있어요. 평면거울로 부채꼴을 꺾어 아래 칸으로 거의 수평하게 보내세요.',
+        '색은 멀리 갈수록 넓게 벌어집니다. 슬릿을 센서 바로 앞에 세우고, 판독기에 파란 막대만 남을 때까지 위아래로 옮기세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 220, y: 190, rot: 22 },
+        { type: 'mirror', x: 548, y: 530, rot: 113 },
+        { type: 'slit', x: 880, y: 532, rot: 0 },
+      ],
+    },
+    {
+      id: 2, title: '잠망경', tools: '평면거울 2개',
+      clearTitle: '높은 벽을 넘어 빛을 보냈어요',
+      brief: '빨간 레이저가 높은 벽에 막혀 있어요. <b>평면거울 두 개</b>로 빛을 위로 올렸다가 다시 앞으로 보내 센서를 켜세요. 거울은 은빛 앞면만 반사하고 뒷면은 빛을 흡수해요.',
+      fixed: [
+        { type: 'source', x: 70, y: 560, rot: 0, params: { spectrum: 'mono', lambda: 650 }, label: '레이저 650 nm' },
+        { type: 'wall', x: 540, y: 380, rot: 0, params: { w: 24, h: 520 } },
+        { type: 'sensor', x: 930, y: 90, rot: 0, params: { len: 70 }, label: '센서',
+          goal: { checks: [{ kind: 'power', min: 1, label: '레이저 도달' }] } },
+      ],
+      inventory: { mirror: 2 },
+      hints: [
+        '첫 번째 거울을 레이저 줄기 위에 놓고 45° 기울여 빛을 위쪽으로 꺾으세요.',
+        '두 번째 거울은 센서와 같은 높이에 두고, 올라온 빛을 오른쪽으로 다시 꺾으세요. 은빛 면이 빛을 향해야 해요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 300, y: 560, rot: 45 },
+        { type: 'mirror', x: 300, y: 90, rot: 225 },
+      ],
+    },
+    {
+      id: 3, title: '바늘구멍', tools: '볼록렌즈',
+      clearTitle: '넓은 빛을 한 점으로 모았어요',
+      brief: '넓은 초록 평행광이 들어와요. 벽에는 폭 12 mm짜리 바늘구멍뿐이에요. <b>볼록렌즈</b>로 빛을 모아 대부분이 구멍을 통과하게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 530, width: 60, rays: 9 }, label: '평행광 530 nm' },
+        { type: 'wall', x: 720, y: 157, rot: 0, params: { w: 20, h: 314 } },
+        { type: 'wall', x: 720, y: 483, rot: 0, params: { w: 20, h: 314 } },
+        { type: 'sensor', x: 880, y: 320, rot: 0, params: { len: 70 }, label: '센서',
+          goal: { checks: [{ kind: 'power', min: 0.75 }] } },
+      ],
+      inventory: { lensConvex: 1 },
+      hints: [
+        '볼록렌즈는 나란히 들어온 빛을 초점 한 곳으로 모아요. 이 렌즈의 초점거리는 140 mm예요.',
+        '렌즈를 바늘구멍에서 왼쪽으로 약 140 mm 떨어진 곳, 빛줄기 한가운데에 세우세요.',
+      ],
+      solution: [{ type: 'lensConvex', x: 595, y: 320, rot: 0 }],
+    },
+    {
+      id: 4, title: '뉴턴식 망원경', tools: '오목거울 · 소형 거울',
+      clearTitle: '별빛을 모아 접안구로 보냈어요',
+      brief: '왼쪽에서 넓은 별빛이 들어와요. 센서는 위쪽 벽에 뚫린 폭 16 mm 구멍 너머에 있어요. <b>오목거울</b>로 빛을 모으고, <b>소형 거울</b>로 꺾어 구멍으로 보내세요. 뉴턴이 만든 반사 망원경과 같은 구조예요.',
+      fixed: [
+        { type: 'source', x: 60, y: 420, rot: 0, params: { spectrum: 'white', width: 64, rays: 9 }, label: '별빛' },
+        { type: 'wall', x: 346, y: 375, rot: 0, params: { w: 692, h: 14 } },
+        { type: 'wall', x: 854, y: 375, rot: 0, params: { w: 292, h: 14 } },
+        { type: 'sensor', x: 700, y: 290, rot: 270, params: { len: 60 }, label: '접안 센서',
+          goal: { checks: [{ kind: 'power', min: 0.5 }] } },
+      ],
+      inventory: { mirrorConcave: 1, mirror: 1 },
+      partParams: { mirror: { h: 14 } },
+      partNames: { mirror: '소형 거울' },
+      hints: [
+        '오목거울은 빛을 되돌려 보내면서 초점거리 140 mm 앞에 모아요. 빛줄기 오른쪽 끝에 오목거울을 세우세요.',
+        '소형 거울을 구멍 바로 아래, 빛줄기 한가운데에 45°로 두세요. 들어오는 빛 일부를 가리지만 진짜 망원경도 그래요.',
+        '오목거울에서 소형 거울까지 약 100 mm, 소형 거울에서 구멍까지 약 45 mm로 두면 초점이 구멍에 맺혀요.',
+      ],
+      solution: [
+        { type: 'mirrorConcave', x: 800, y: 420, rot: 0 },
+        { type: 'mirror', x: 700, y: 422, rot: 135 },
+      ],
+    },
+    {
+      id: 5, title: '빛으로 가득', tools: '오목렌즈 · 평면거울',
+      clearTitle: '가는 빛을 넓게 펼쳤어요',
+      brief: '가는 주황빛으로 긴 센서 전체를 비춰야 해요. <b>오목렌즈</b>로 빛을 퍼뜨려 센서 길이의 70% 이상을 비추되, 빛의 75% 이상은 센서에 닿아야 해요.',
+      fixed: [
+        { type: 'source', x: 200, y: 590, rot: 270, params: { spectrum: 'mono', lambda: 610, width: 20, rays: 9 }, label: '레이저 610 nm' },
+        { type: 'sensor', x: 955, y: 180, rot: 0, params: { len: 120 }, label: '긴 센서',
+          goal: { checks: [{ kind: 'coverage', min: 0.7 }, { kind: 'power', min: 0.75 }] } },
+      ],
+      inventory: { lensConcave: 1, mirror: 1 },
+      partParams: { lensConcave: { f: -70, h: 30 } },
+      hints: [
+        '먼저 평면거울로 위로 올라가는 빛을 오른쪽 센서 쪽으로 꺾으세요.',
+        '오목렌즈는 빛을 퍼뜨려요. 센서에서 멀리 둘수록 더 넓게 퍼집니다.',
+        '렌즈를 센서에서 300 mm쯤 떨어뜨려 보세요. 너무 멀면 빛이 센서 밖으로 새요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 200, y: 180, rot: 225 },
+        { type: 'lensConcave', x: 635, y: 180, rot: 0 },
+      ],
+    },
+    {
+      id: 6, title: '두 센서 한 번에', tools: '볼록거울',
+      clearTitle: '빛 하나로 두 센서를 켰어요',
+      brief: '레이저는 하나인데 센서는 위아래로 둘이에요. <b>볼록거울</b>은 빛을 되돌려 보내면서 넓게 퍼뜨려요. 두 센서 모두에 빛 2줄 이상을 보내세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 500, width: 56, rays: 9 }, label: '레이저 500 nm' },
+        { type: 'sensor', x: 230, y: 130, rot: 180, params: { len: 110 }, label: '센서 A',
+          goal: { checks: [{ kind: 'power', min: 0.2, label: '센서 A에 닿은 빛' }] } },
+        { type: 'sensor', x: 230, y: 510, rot: 180, params: { len: 110 }, label: '센서 B',
+          goal: { checks: [{ kind: 'power', min: 0.2, label: '센서 B에 닿은 빛' }] } },
+      ],
+      inventory: { mirrorConvex: 1 },
+      partParams: { mirrorConvex: { f: 70, h: 50 } },
+      hints: [
+        '볼록거울을 빛줄기 오른쪽에 세워 빛을 왼쪽으로 되돌려 보내세요.',
+        '거울이 멀수록 돌아온 빛이 더 넓게 벌어져요. 두 센서에 동시에 닿을 때까지 거울을 오른쪽으로 옮기세요.',
+      ],
+      solution: [{ type: 'mirrorConvex', x: 660, y: 320, rot: 0 }],
+    },
+    {
+      id: 7, title: '거울 없이', tools: '프리즘 2개',
+      clearTitle: '거울 없이 빛을 되돌려 보냈어요',
+      brief: '이번엔 거울이 없어요. 보라 레이저를 벽 아래쪽 센서로 되돌려 보내야 해요. <b>프리즘</b>은 빛을 굴절시킬 뿐 아니라, 각도가 맞으면 안쪽 면에서 <b>전반사</b>해 거울처럼 빛을 크게 꺾어요.',
+      fixed: [
+        { type: 'source', x: 70, y: 140, rot: 0, params: { spectrum: 'mono', lambda: 420 }, label: '레이저 420 nm' },
+        { type: 'wall', x: 360, y: 320, rot: 0, params: { w: 720, h: 20 } },
+        { type: 'sensor', x: 100, y: 500, rot: 180, params: { len: 80 }, label: '센서',
+          goal: { checks: [{ kind: 'power', min: 1, label: '레이저 도달' }] } },
+      ],
+      inventory: { prism: 2 },
+      hints: [
+        '프리즘을 빛줄기 위에 놓고 천천히 돌려 보세요. 어떤 각도에서는 빛이 프리즘 안에서 한 번 튕긴 뒤 90° 가까이 꺾여 나와요. 이게 전반사예요.',
+        '첫 번째 프리즘은 벽 오른쪽 끝을 지나 빛을 아래로 내려보내는 자리, x 850 mm 근처에 두세요.',
+        '두 번째 프리즘은 센서와 같은 높이(y 500 mm)에서 내려온 빛을 왼쪽으로 꺾게 하세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 850, y: 140, rot: 104 },
+        { type: 'prism', x: 880, y: 490, rot: 194 },
+      ],
+    },
+    {
+      id: 8, title: '빨강과 초록 나누기', tools: '프리즘 · 평면거울 · 슬릿 2개',
+      clearTitle: '한 줄기 빛을 두 색으로 나눠 보냈어요',
+      brief: '무지개를 두 갈래로 나눠야 해요. <b>빨강(625–700 nm)</b>은 아래쪽 센서로, <b>초록(500–565 nm)</b>은 왼쪽 센서로 보내세요. 거울 끝 모서리를 부채꼴 한가운데에 대면 일부 색만 반사돼요.',
+      fixed: [
+        { type: 'source', x: 70, y: 110, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'sensor', x: 866, y: 615, rot: 90, params: { len: 70 }, label: '빨강 센서',
+          goal: { checks: [
+            { kind: 'band', name: '빨강', band: [625, 700], min: 0.5 },
+            { kind: 'purity', name: '빨강', band: [625, 700], min: 0.85 }] } },
+        { type: 'sensor', x: 40, y: 560, rot: 180, params: { len: 70 }, label: '초록 센서',
+          goal: { checks: [
+            { kind: 'band', name: '초록', band: [500, 565], min: 0.5 },
+            { kind: 'purity', name: '초록', band: [500, 565], min: 0.85 }] } },
+      ],
+      inventory: { prism: 1, mirror: 1, slit: 2 },
+      partParams: { slit: { gap: 30 } },
+      hints: [
+        '프리즘으로 부채꼴을 만든 뒤, 부채꼴이 바닥 쪽 빨강 센서 근처에 떨어지게 프리즘을 조정하세요.',
+        '평면거울을 거의 세워서 부채꼴 안에 넣고, 위쪽 끝이 노랑과 초록 사이에 오게 하세요. 초록·파랑·보라만 반사되어 왼쪽으로 가요.',
+        '두 센서 앞에 슬릿을 하나씩 세워 원하는 색만 통과시키세요. 빨강 센서 앞 슬릿은 눕혀야(90°) 해요.',
+      ],
+      solution: [
+        { type: 'prism', x: 230, y: 110, rot: 22 },
+        { type: 'mirror', x: 473, y: 369, rot: 8 },
+        { type: 'slit', x: 807, y: 565, rot: 92.5 },
+        { type: 'slit', x: 195, y: 482, rot: -3 },
+      ],
+    },
+    {
+      id: 9, title: '다시 백색광', tools: '볼록렌즈',
+      clearTitle: '무지개를 다시 백색광으로 모았어요',
+      brief: '고정된 프리즘이 백색광을 무지개로 흩어 놓았어요. <b>볼록렌즈</b>로 흩어진 색을 바늘구멍 한 점에 다시 모아, 여섯 색이 모두 센서에 들어가게 하세요. 뉴턴이 백색광이 여러 색의 혼합임을 보인 실험이에요.',
+      fixed: [
+        { type: 'source', x: 60, y: 100, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'prism', x: 180, y: 100, rot: 22 },
+        { type: 'wall', x: 638 - 83 * W45, y: 557 + 83 * W45, rot: 135, params: { w: 150, h: 12 } },
+        { type: 'wall', x: 638 + 83 * W45, y: 557 - 83 * W45, rot: 135, params: { w: 150, h: 12 } },
+        { type: 'sensor', x: 638 + 30 * W45, y: 557 + 30 * W45, rot: 45, params: { len: 50 }, label: '센서',
+          goal: { checks: [{ kind: 'white', min: 0.5 }] } },
+      ],
+      inventory: { lensConvex: 1 },
+      hints: [
+        '프리즘에서 나온 무지개는 프리즘 출구 한 점에서 퍼져 나와요. 볼록렌즈는 한 점에서 퍼진 빛을 다른 한 점으로 다시 모을 수 있어요.',
+        '렌즈를 프리즘 출구와 바늘구멍을 잇는 선 위에 두고, 그 선과 수직이 되게(45°) 돌리세요.',
+        '1/a + 1/b = 1/f (f = 140 mm). 출구에서 렌즈까지 약 223 mm, 렌즈에서 구멍까지 약 377 mm일 때 초점이 맞아요.',
+      ],
+      solution: [{ type: 'lensConvex', x: 371, y: 290, rot: 45 }],
+    },
+    {
+      id: 10, title: '빔 확장기', tools: '오목렌즈 · 볼록렌즈',
+      clearTitle: '가는 빛을 굵은 평행광으로 넓혔어요',
+      brief: '가는 레이저를 <b>세 배 굵기의 평행광</b>으로 넓혀야 해요. 센서 길이의 60% 이상을 비추고, 광선들이 1° 안쪽으로 나란해야 해요. 렌즈 하나로는 퍼지거나 모이기만 하니, <b>두 렌즈</b>를 함께 쓰세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
+        { type: 'sensor', x: 940, y: 320, rot: 0, params: { len: 80 }, label: '센서',
+          goal: { checks: [{ kind: 'coverage', min: 0.6 }, { kind: 'parallel', max: 1 }, { kind: 'power', min: 0.8 }] } },
+      ],
+      inventory: { lensConcave: 1, lensConvex: 1 },
+      partParams: { lensConcave: { f: -70, h: 24 }, lensConvex: { f: 210, h: 48 } },
+      hints: [
+        '오목렌즈(f −70 mm)로 먼저 빛을 퍼뜨리고, 볼록렌즈(f 210 mm)로 퍼지는 빛을 다시 나란하게 만드세요.',
+        '두 렌즈의 초점이 같은 곳에 오면 평행광이 돼요. 두 렌즈 사이 거리를 210 − 70 = 140 mm로 맞춰 보세요.',
+      ],
+      solution: [
+        { type: 'lensConcave', x: 300, y: 320, rot: 0 },
+        { type: 'lensConvex', x: 440, y: 320, rot: 0 },
+      ],
+    },
+    {
+      id: 11, title: '보라 레이저 포인터', tools: '프리즘 · 슬릿 · 볼록렌즈',
+      clearTitle: '보라빛만 골라 한 점에 모았어요',
+      brief: '백색광에서 <b>보라빛(400–445 nm)</b>만 골라, 비스듬한 벽에 뚫린 바늘구멍 한 점에 모아 보내세요. 색을 고르는 도구와 빛을 모으는 도구가 모두 필요해요.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        ...pinhole(616, 590, 51, 12),
+        behind(616, 590, 51, 28, 50, '센서', { checks: [
+          { kind: 'band', name: '보라', band: [400, 445], min: 0.5 },
+          { kind: 'purity', name: '보라', band: [400, 445], min: 0.8 }] }),
+      ],
+      inventory: { prism: 1, slit: 1, lensConvex: 1 },
+      partParams: { slit: { gap: 14 } },
+      hints: [
+        '프리즘으로 무지개를 만들고, 부채꼴의 보라 쪽 끝에 슬릿을 세우세요. 슬릿은 빛줄기와 수직이 되게 돌려요.',
+        '골라낸 보라빛도 프리즘에서 조금씩 퍼져 나와요. 슬릿 뒤에 볼록렌즈를 두면 퍼지는 보라빛이 바늘구멍 한 점으로 모여요.',
+        '프리즘 출구에서 렌즈까지 약 250 mm, 렌즈는 빛줄기와 수직(약 51°)이 되게 두세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 230, y: 120, rot: 22 },
+        { type: 'slit', x: 371, y: 287, rot: 51 },
+        { type: 'lensConvex', x: 421, y: 349, rot: 51 },
+      ],
+    },
+    {
+      id: 12, title: '빛의 삼원색', tools: '볼록렌즈 · 평면거울',
+      clearTitle: '세 가지 색을 한 점에 모아 흰빛을 만들었어요',
+      brief: '<b>빨강 · 초록 · 파랑</b> 레이저 세 줄기를 위쪽 바늘구멍 하나로 모두 보내세요. 세 색이 한 점에서 겹치면 센서에 흰빛이 맺혀요.',
+      fixed: [
+        { type: 'source', x: 70, y: 425, rot: 0, params: { spectrum: 'mono', lambda: 650 }, label: '레이저 650 · 530 · 460 nm' },
+        { type: 'source', x: 70, y: 460, rot: 0, params: { spectrum: 'mono', lambda: 530 } },
+        { type: 'source', x: 70, y: 495, rot: 0, params: { spectrum: 'mono', lambda: 460 } },
+        ...pinhole(520, 400, -90, 12),
+        behind(520, 400, -90, 28, 50, '센서', { checks: [
+          { kind: 'band', name: '빨강', band: [620, 700], min: 1 },
+          { kind: 'band', name: '초록', band: [500, 565], min: 1 },
+          { kind: 'band', name: '파랑', band: [450, 495], min: 1 }] }),
+      ],
+      inventory: { lensConvex: 1, mirror: 1 },
+      partParams: { lensConvex: { f: 210 } },
+      hints: [
+        '나란한 빛줄기 여러 개도 볼록렌즈를 지나면 초점 한 곳에서 만나요. 이 렌즈의 초점거리는 210 mm예요.',
+        '렌즈 뒤에 평면거울을 45°로 두어 모이는 빛을 위로 꺾으세요.',
+        '렌즈에서 거울까지와 거울에서 바늘구멍까지의 거리를 더해 약 210 mm가 되게 하세요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 370, y: 460, rot: 0 },
+        { type: 'mirror', x: 520, y: 460, rot: 45 },
+      ],
+    },
+    {
+      id: 13, title: '분광기', tools: '큰 프리즘 · 오목거울',
+      clearTitle: '분광기로 초록빛을 골라냈어요',
+      brief: '넓은 백색광은 프리즘을 지나도 색끼리 겹쳐요. <b>오목거울</b>로 색마다 다른 점에 초점을 맺게 하면 무지개가 선명하게 펼쳐져요. 바늘구멍에 <b>초록(500–565 nm)</b>이 맺히게 하세요. 실제 분광기의 원리예요.',
+      fixed: [
+        { type: 'source', x: 70, y: 110, rot: 0, params: { spectrum: 'white', width: 36, rays: 5 }, label: '백색 평행광' },
+        ...pinhole(341, 417, -172.7, 12, 60),
+        behind(341, 417, -172.7, 28, 50, '센서', { checks: [
+          { kind: 'band', name: '초록', band: [500, 565], min: 0.45 },
+          { kind: 'purity', name: '초록', band: [500, 565], min: 0.85 }] }),
+      ],
+      inventory: { prism: 1, mirrorConcave: 1 },
+      partParams: { prism: { side: 140 }, mirrorConcave: { f: 280 } },
+      partNames: { prism: '큰 프리즘' },
+      hints: [
+        '큰 프리즘으로 넓은 빛을 분산시키고, 부채꼴이 내려가는 쪽 멀리(프리즘에서 약 420 mm)에 오목거울을 세우세요.',
+        '오목거울이 빛을 프리즘 쪽으로 조금 비켜서 되돌리게 하면, 센서 앞 벽 근처에 작은 무지개가 또렷하게 맺혀요.',
+        '거울을 0.5°씩 돌리면 맺힌 무지개가 구멍 위를 미끄러져요. 판독기에 초록 막대만 남을 때 멈추세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 230, y: 142, rot: 22 },
+        { type: 'mirrorConcave', x: 594, y: 475, rot: 27.7 },
+      ],
+    },
+    {
+      id: 14, title: '분산 되돌리기', tools: '프리즘 · 평면거울',
+      clearTitle: '흩어진 무지개를 다시 한 줄기 흰빛으로 되돌렸어요',
+      brief: '고정된 프리즘이 백색광을 흩어 놓았어요. 아래쪽 두 겹의 바늘구멍은 나란히 겹친 흰빛만 통과시켜요. <b>프리즘 하나를 거꾸로</b> 두어 분산을 되돌린 뒤 <b>거울</b>로 구멍에 보내세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'prism', x: 200, y: 120, rot: 22 },
+        ...pinhole(760, 330, 90, 14),
+        ...pinhole(760, 500, 90, 14),
+        behind(760, 500, 90, 28, 50, '센서', { checks: [{ kind: 'white', min: 0.5 }] }),
+      ],
+      inventory: { prism: 1, mirror: 1 },
+      hints: [
+        '똑같은 프리즘을 180° 뒤집어 놓으면 첫 프리즘이 벌린 각도를 반대로 되돌려요.',
+        '두 번째 프리즘은 첫 프리즘 바로 오른쪽 아래, 무지개가 막 퍼지기 시작하는 곳에 두세요. 멀어질수록 색이 옆으로 어긋나요.',
+        '다시 흰빛이 된 빛줄기를 평면거울로 꺾어 두 바늘구멍을 차례로 지나게 하세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 265, y: 175, rot: 201 },
+        { type: 'mirror', x: 760, y: 178, rot: -45 },
+      ],
+    },
+    {
+      id: 15, title: '반사식 빔 확장기', tools: '볼록거울 · 오목거울',
+      clearTitle: '거울만으로 빛을 넓혔어요',
+      brief: '스테이지 10을 렌즈 없이 <b>거울 두 개</b>로 풀어 보세요. 가는 레이저를 넓은 평행광으로 만들어 오른쪽 센서에 보내야 해요. 큰 망원경이 렌즈 대신 거울을 쓰는 것과 같은 방식이에요.',
+      fixed: [
+        { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
+        { type: 'sensor', x: 950, y: 270, rot: 0, params: { len: 80 }, label: '센서',
+          goal: { checks: [{ kind: 'coverage', min: 0.6 }, { kind: 'parallel', max: 1 }, { kind: 'power', min: 0.8 }] } },
+      ],
+      inventory: { mirrorConvex: 1, mirrorConcave: 1 },
+      partParams: { mirrorConvex: { f: 70, h: 20 }, mirrorConcave: { f: 210, h: 50 } },
+      hints: [
+        '볼록거울(f 70 mm)로 빛을 퍼뜨리며 되돌리고, 오목거울(f 210 mm)로 받아 다시 나란하게 만드세요.',
+        '두 거울 사이 거리는 210 − 70 = 140 mm예요. 거울을 15° 정도씩 비스듬히 두어야 빛줄기가 서로를 가리지 않아요.',
+      ],
+      solution: [
+        { type: 'mirrorConvex', x: 600, y: 200, rot: -15 },
+        { type: 'mirrorConcave', x: 479, y: 270, rot: 165 },
+      ],
+    },
+    {
+      id: 16, title: '무지개 넓히기', tools: '프리즘 · 볼록거울',
+      clearTitle: '무지개를 넓혀 세 색을 각자 자리로 보냈어요',
+      brief: '천장의 세 센서가 각각 <b>파랑 · 초록 · 빨강</b>만 받아야 해요. 프리즘 하나로 만든 무지개는 너무 좁아요. <b>볼록거울</b>로 부채꼴을 크게 벌려 보세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'sensor', x: 425, y: 24, rot: 270, params: { len: 60 }, label: '파랑',
+          goal: { checks: [{ kind: 'band', name: '파랑', band: [450, 495], min: 0.4 }, { kind: 'purity', name: '파랑', band: [450, 495], min: 0.8 }] } },
+        { type: 'sensor', x: 520, y: 24, rot: 270, params: { len: 60 }, label: '초록',
+          goal: { checks: [{ kind: 'band', name: '초록', band: [500, 565], min: 0.4 }, { kind: 'purity', name: '초록', band: [500, 565], min: 0.8 }] } },
+        { type: 'sensor', x: 684, y: 24, rot: 270, params: { len: 60 }, label: '빨강',
+          goal: { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.4 }, { kind: 'purity', name: '빨강', band: [625, 700], min: 0.8 }] } },
+      ],
+      inventory: { prism: 1, mirrorConvex: 1 },
+      partParams: { mirrorConvex: { f: 70, h: 50 } },
+      hints: [
+        '프리즘으로 아래쪽을 향한 무지개를 만든 뒤, 프리즘 가까이(약 150 mm)에 볼록거울을 세워 무지개를 위로 되돌리세요.',
+        '볼록거울은 색마다 조금씩 더 꺾어서 부채꼴을 서너 배로 넓혀요. 거울을 돌려 세 색이 각자 센서에 떨어지게 하세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 220, y: 320, rot: 22 },
+        { type: 'mirrorConvex', x: 339, y: 420, rot: 82.5 },
+      ],
+    },
+    {
+      id: 17, title: '손전등 평행광', tools: '볼록렌즈 · 평면거울',
+      clearTitle: '퍼지는 빛을 나란한 빛줄기로 만들었어요',
+      brief: '점광원은 빛을 부채꼴로 퍼뜨려요. 멀리 있는 작은 센서에 빛을 거의 다 보내려면 퍼지는 빛을 <b>나란하게</b> 만든 다음 방향을 바꿔야 해요. 손전등과 등대의 원리예요.',
+      fixed: [
+        { type: 'source', x: 70, y: 520, rot: 0, params: { spectrum: 'mono', lambda: 585, fan: 24, rays: 9 }, label: '점광원 585 nm' },
+        { type: 'sensor', x: 600, y: 30, rot: 270, params: { len: 70 }, label: '먼 센서',
+          goal: { checks: [{ kind: 'power', min: 0.8 }, { kind: 'parallel', max: 1.5 }] } },
+      ],
+      inventory: { lensConvex: 1, mirror: 1 },
+      hints: [
+        '점광원을 볼록렌즈의 초점에 두면 렌즈를 지난 빛이 나란해져요. 광원 앞 약 140 mm에 렌즈를 세우세요.',
+        '나란해진 빛을 평면거울로 위쪽 센서를 향해 꺾으세요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 212, y: 520, rot: 0 },
+        { type: 'mirror', x: 600, y: 520, rot: 45 },
+      ],
+    },
+    {
+      id: 18, title: '케플러 망원경', tools: '대물렌즈 · 접안렌즈 · 평면거울',
+      clearTitle: '두 볼록렌즈로 빛을 가늘게 모았어요',
+      brief: '넓은 평행광을 <b>세 배 가늘게</b> 줄여 위쪽 창(폭 44 mm)으로 통과시키고, 센서에는 나란한 빛으로 닿게 하세요. 볼록렌즈 두 개로 만드는 케플러식 망원경이에요.',
+      fixed: [
+        { type: 'source', x: 70, y: 400, rot: 0, params: { spectrum: 'mono', lambda: 470, width: 60, rays: 7 }, label: '평행광 470 nm' },
+        ...pinhole(640, 230, -90, 44, 150, 14),
+        { type: 'sensor', x: 640, y: 40, rot: 270, params: { len: 50 }, label: '센서',
+          goal: { checks: [{ kind: 'power', min: 0.8 }, { kind: 'parallel', max: 1.5 }] } },
+      ],
+      inventory: { lensConvex: 1, 'lensConvex:eye': 1, mirror: 1 },
+      parts: {
+        lensConvex: { type: 'lensConvex', params: { f: 210, h: 48 }, name: '대물렌즈' },
+        'lensConvex:eye': { type: 'lensConvex', params: { f: 70, h: 24 }, name: '접안렌즈' },
+      },
+      hints: [
+        '대물렌즈(f 210)로 빛을 모으고, 초점을 지나 다시 퍼지는 빛을 접안렌즈(f 70)로 받아 나란하게 만드세요.',
+        '두 렌즈 사이 거리는 210 + 70 = 280 mm 정도예요. 접안렌즈를 1 mm씩 옮기며 평행도를 확인하세요.',
+        '가늘어진 빛을 평면거울로 위쪽 창을 향해 꺾으세요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 200, y: 400, rot: 0 },
+        { key: 'lensConvex:eye', type: 'lensConvex', x: 478, y: 400, rot: 0 },
+        { type: 'mirror', x: 640, y: 400, rot: 45 },
+      ],
+    },
+    {
+      id: 19, title: '전반사 초점', tools: '프리즘 · 볼록렌즈',
+      clearTitle: '거울 없이 꺾고 렌즈로 모았어요',
+      brief: '쌍안경 속 프리즘처럼 <b>프리즘의 전반사</b>로 넓은 빨간빛을 아래로 꺾고, <b>볼록렌즈</b>로 모아 아래쪽 바늘구멍에 보내세요. 이번에도 거울은 없어요.',
+      fixed: [
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 640, width: 40, rays: 5 }, label: '레이저 640 nm' },
+        ...pinhole(632, 470, 90, 10),
+        behind(632, 470, 90, 28, 50, '센서', { checks: [{ kind: 'power', min: 0.8 }] }),
+      ],
+      inventory: { prism: 1, lensConvex: 1 },
+      hints: [
+        '프리즘을 빛줄기에 놓고 돌리다 보면, 빛 전체가 안쪽 면에서 반사돼 아래로 꺾이는 각도가 있어요. 105° 근처를 찾아보세요.',
+        '아래로 내려가는 빛줄기 한가운데에 볼록렌즈를 눕혀(90°) 두고, 바늘구멍에서 약 140 mm 위에 맞추세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 600, y: 170, rot: 105 },
+        { type: 'lensConvex', x: 632, y: 330, rot: 90 },
+      ],
+    },
+    {
+      id: 20, title: '두 실험 동시에', tools: '프리즘 · 슬릿 · 볼록렌즈 · 평면거울 2개',
+      clearTitle: '두 실험을 한 실험대에서 끝냈어요',
+      brief: '광원도 둘, 센서도 둘이에요. 백색광에서는 <b>파랑만</b> 골라 왼쪽 센서로, 초록 레이저는 <b>오른쪽 위 바늘구멍</b>으로 모아 보내세요. 한쪽을 위해 놓은 부품이 다른 쪽 빛을 가리지 않게 배치하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 80, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        { type: 'source', x: 70, y: 560, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 50, rays: 5 }, label: '레이저 532 nm' },
+        ...pinhole(900, 300, -90, 10),
+        behind(900, 300, -90, 28, 50, '초록 센서', { checks: [{ kind: 'band', name: '532 nm 레이저', band: [532, 532], min: 0.8 }] }),
+        { type: 'sensor', x: 40, y: 330, rot: 180, params: { len: 120 }, label: '파랑 센서',
+          goal: { checks: [{ kind: 'band', name: '파랑', band: [450, 495], min: 0.4 }, { kind: 'purity', name: '파랑', band: [450, 495], min: 0.85 }] } },
+      ],
+      inventory: { prism: 1, slit: 1, lensConvex: 1, mirror: 2 },
+      partParams: { slit: { gap: 24 } },
+      hints: [
+        '초록 레이저부터: 오른쪽 끝에 평면거울을 45°로 세워 위로 꺾고, 볼록렌즈를 바늘구멍 140 mm 아래에 눕혀 두세요.',
+        '백색광은 프리즘으로 무지개를 만든 뒤, 두 번째 거울로 파랑 근처를 왼쪽 센서 쪽으로 되돌리세요.',
+        '되돌아가는 빛줄기에 슬릿을 수직으로 세워 파랑만 남기세요.',
+      ],
+      solution: [
+        { type: 'prism', x: 230, y: 80, rot: 22 },
+        { type: 'mirror', x: 645, y: 457, rot: 30 },
+        { type: 'slit', x: 250, y: 308, rot: 12 },
+        { type: 'mirror', x: 900, y: 560, rot: 45 },
+        { type: 'lensConvex', x: 900, y: 440, rot: 90 },
+      ],
+    },
+  ];
+
+  return { STAGES, evalGoal, pinhole, behind };
+})();
+
+
+
+</script>
+<script>
+
+/* ===== 광로 실험실: 화면·조작 ===== */
+(() => {
+  const { W, H, PARTS, wlRGB } = OPT;
+  const $ = s => document.querySelector(s);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const normDeg = a => ((a % 360) + 360) % 360;
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+
+  const C = {
+    bench: '#12161b', hole: '#06080a', holeRim: 'rgba(255,255,255,0.055)',
+    ruler: 'rgba(200,210,225,0.28)', wall: '#1b2027', wallEdge: '#353d48',
+    body: '#272d36', bodyEdge: '#4a5361', tape: '#e8d9a0', tapeInk: '#2a2619',
+    accent: '#f3c447', ok: '#74d99f', bad: '#ff8a7a',
+    glassEdge: 'rgba(205,232,255,0.85)', silver: '#e6edf5',
+  };
+
+  const STAGES = GAME.STAGES;
+
+  const LAB_PARTS = ['prism', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'slit'];
+  const DEFAULT_ROT = { prism: 22, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, slit: 0 };
+
+  /* ---------- 상태 ---------- */
+  let S = null;
+  let uid = 1;
+  let R = { paths: [], sensorHits: new Map(), emitted: [] };
+  let evalRes = [];
+  let dirty = true;
+  let drag = null;
+  let winTimer = null;
+
+  // 클리어 기록 (이 브라우저에만 저장)
+  const cleared = new Set();
+  try { JSON.parse(localStorage.getItem('optics-lab-cleared') || '[]').forEach(n => cleared.add(n)); } catch (e) { /* 저장소 없음 */ }
+  const saveCleared = () => { try { localStorage.setItem('optics-lab-cleared', JSON.stringify([...cleared])); } catch (e) { /* 무시 */ } };
+
+  function freshState(mode, stage) {
+    return {
+      mode, stage, objs: [], inv: {}, sel: null, won: false, overlay: false,
+      hintStep: 0, placed: false, revealed: false,
+      lab: { spectrum: 'white', lambda: 470, wide: false, gap: 22 },
+    };
+  }
+
+  function loadStage(i) {
+    const st = STAGES[i];
+    S = freshState('stage', i);
+    S.objs = st.fixed.map(o => ({ ...o, params: { ...(o.params || {}) }, id: uid++, locked: true }));
+    S.inv = { ...st.inventory };
+    afterLoad();
+    hideClear();
+  }
+
+  function loadLab() {
+    S = freshState('lab', 0);
+    S.objs = [
+      { type: 'source', x: 80, y: 320, rot: 0, params: {}, label: '광원', id: uid++, locked: false },
+      { type: 'sensor', x: 900, y: 320, rot: 0, params: { len: 120 }, label: '센서', id: uid++, locked: false },
+    ];
+    LAB_PARTS.forEach(t => { S.inv[t] = Infinity; });
+    applyLabSource();
+    afterLoad();
+  }
+
+  function afterLoad() {
+    clearTimeout(winTimer);
+    buildPanel();
+    updateNav();
+    updateStatus();
+    retrace();
+  }
+
+  const selObj = () => S.objs.find(o => o.id === S.sel) || null;
+
+  function applyLabSource() {
+    const src = S.objs.find(o => o.type === 'source');
+    const L = S.lab;
+    src.params = {
+      spectrum: L.spectrum === 'mono' ? 'mono' : 'white', lambda: L.lambda,
+      width: L.wide ? 70 : 0, rays: L.wide ? 7 : 1,
+    };
+    src.label = L.spectrum === 'mono' ? `단색광 ${L.lambda} nm` : '백색광';
+    S.objs.filter(o => o.type === 'slit').forEach(o => { o.params.gap = L.gap; });
+  }
+
+  /* ---------- 추적·판정 ---------- */
+  function retrace() {
+    R = OPT.trace(S.objs);
+    evaluate();
+    dirty = true;
+    updateReadout();
+    updateSelPanel();
+    maybeWin();
+  }
+
+  function evaluate() {
+    evalRes = [];
+    for (const o of S.objs) {
+      if (o.type !== 'sensor') continue;
+      const hits = R.sensorHits.get(o) || [];
+      const res = { obj: o, hits, total: hits.reduce((a, h) => a + h.I, 0) };
+      if (o.goal) { const g = GAME.evalGoal(o.goal, hits, R.emitted); res.checks = g.checks; res.ok = g.ok; }
+      evalRes.push(res);
+    }
+  }
+
+  function allGoalsMet() {
+    const g = evalRes.filter(r => r.obj.goal);
+    return g.length > 0 && g.every(r => r.ok);
+  }
+
+  function maybeWin() {
+    if (S.mode !== 'stage' || S.won || S.revealed) return;
+    clearTimeout(winTimer);
+    if (!allGoalsMet() || drag) return;
+    winTimer = setTimeout(() => {
+      if (!drag && allGoalsMet() && !S.won && !S.revealed) {
+        S.won = true; S.overlay = true;
+        cleared.add(STAGES[S.stage].id); saveCleared(); updateNav();
+        showClear(); dirty = true;
+      }
+    }, 450);
+  }
+
+  /* ---------- 캔버스 ---------- */
+  const cv = $('#board');
+  const ctx = cv.getContext('2d');
+  let scale = 1, dpr = 1, cssW = 0, cssH = 0, bench = null;
+
+  function resize() {
+    const r = cv.getBoundingClientRect();
+    if (!r.width) return;
+    cssW = r.width; cssH = r.width * H / W;
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    scale = cssW / W;
+    buildBench();
+    dirty = true;
+  }
+
+  function buildBench() {
+    bench = document.createElement('canvas');
+    bench.width = cv.width; bench.height = cv.height;
+    const b = bench.getContext('2d');
+    const k = dpr * scale, px = 1 / scale;
+    b.setTransform(k, 0, 0, k, 0, 0);
+    b.fillStyle = C.bench; b.fillRect(0, 0, W, H);
+    // 양극산화 표면의 미세한 결
+    const g = b.createRadialGradient(W * 0.45, H * 0.4, 50, W * 0.5, H * 0.5, W * 0.75);
+    g.addColorStop(0, 'rgba(120,140,170,0.06)'); g.addColorStop(1, 'rgba(0,0,0,0.35)');
+    b.fillStyle = g; b.fillRect(0, 0, W, H);
+    // M6 나사 구멍 (25 mm 간격)
+    const hr = Math.max(2.2, 1.6 * px);
+    for (let x = 25; x < W; x += 25) for (let y = 25; y < H; y += 25) {
+      b.beginPath(); b.arc(x, y, hr, 0, Math.PI * 2); b.fillStyle = C.hole; b.fill();
+      b.beginPath(); b.arc(x, y, hr, 0.15 * Math.PI, 0.85 * Math.PI); b.strokeStyle = C.holeRim; b.lineWidth = 0.9 * px; b.stroke();
+    }
+    // 눈금 (mm)
+    b.fillStyle = C.ruler; b.strokeStyle = C.ruler; b.lineWidth = px;
+    b.font = `${9 * px}px "IBM Plex Mono", ui-monospace, monospace`;
+    b.textBaseline = 'top';
+    for (let x = 0; x <= W; x += 25) {
+      const big = x % 100 === 0;
+      b.beginPath(); b.moveTo(x, 0); b.lineTo(x, (big ? 7 : 3.5) * px); b.stroke();
+      if (big && x > 0 && x < W) b.fillText(String(x), x + 2.5 * px, 2 * px);
+    }
+    b.textBaseline = 'middle';
+    for (let y = 0; y <= H; y += 25) {
+      const big = y % 100 === 0;
+      b.beginPath(); b.moveTo(0, y); b.lineTo((big ? 7 : 3.5) * px, y); b.stroke();
+      if (big && y > 0 && y < H) b.fillText(String(y), 9 * px, y);
+    }
+    b.fillText('mm', 9 * px, 12 * px);
+  }
+
+  function render() {
+    if (!bench) return;
+    const k = dpr * scale, px = 1 / scale;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(bench, 0, 0);
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+
+    for (const o of S.objs) if (o.type === 'wall' && !o.hidden) drawWall(ctx, o, px);
+    drawRays(ctx, px);
+    for (const o of S.objs) {
+      if (o.hidden || o.type === 'wall') continue;
+      drawObj(ctx, o, px);
+      if (o.locked && o.type !== 'source' && o.type !== 'sensor') drawPin(ctx, o, px);
+    }
+    for (const o of S.objs) if (o.label && !o.hidden) drawLabel(ctx, o, px);
+    const sel = selObj();
+    if (sel && !sel.hidden) drawSelection(ctx, sel, px);
+  }
+
+  function loop() {
+    if (dirty) { dirty = false; render(); }
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- 광선 그리기 ---------- */
+  const colorCache = new Map();
+  const colOf = l => { if (!colorCache.has(l)) colorCache.set(l, wlRGB(l)); return colorCache.get(l); };
+
+  // 이웃한 두 광선 사이를 면으로 채워 연속된 빛 띠처럼 보이게 한다
+  function fillSheet(c, A, B, alpha, pastel) {
+    const n = Math.min(A.tags.length, B.tags.length);
+    let m = 0;
+    while (m + 1 < n && A.tags[m + 1] === B.tags[m + 1]) m++;
+    const ca = colOf(A.lambda), cb = colOf(B.lambda);
+    let r = (ca[0] + cb[0]) / 2, g = (ca[1] + cb[1]) / 2, b = (ca[2] + cb[2]) / 2;
+    // 여러 파장이 겹치는 면은 흰빛에 가깝게 섞는다
+    if (pastel) { r = r * 0.45 + 140; g = g * 0.45 + 140; b = b * 0.45 + 140; }
+    c.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${alpha})`;
+    c.beginPath();
+    for (let s = 0; s < m; s++) {
+      const a = 2 * s;
+      c.moveTo(A.pts[a], A.pts[a + 1]); c.lineTo(A.pts[a + 2], A.pts[a + 3]);
+      c.lineTo(B.pts[a + 2], B.pts[a + 3]); c.lineTo(B.pts[a], B.pts[a + 1]); c.closePath();
+    }
+    // 갈라지는 구간: 둘 중 먼저 끝나는 거리까지만 채운다
+    const a = 2 * m;
+    if (a + 3 < A.pts.length && a + 3 < B.pts.length) {
+      const ax = A.pts[a], ay = A.pts[a + 1], bx = B.pts[a], by = B.pts[a + 1];
+      const adx = A.pts[a + 2] - ax, ady = A.pts[a + 3] - ay, bdx = B.pts[a + 2] - bx, bdy = B.pts[a + 3] - by;
+      const la = Math.hypot(adx, ady), lb = Math.hypot(bdx, bdy), L = Math.min(la, lb);
+      if (la > 1e-6 && lb > 1e-6 && Math.hypot(ax - bx, ay - by) < 40) {
+        c.moveTo(ax, ay); c.lineTo(ax + adx * L / la, ay + ady * L / la);
+        c.lineTo(bx + bdx * L / lb, by + bdy * L / lb); c.lineTo(bx, by); c.closePath();
+      }
+    }
+    c.fill('nonzero');
+  }
+
+  function drawSheets(c) {
+    const grid = new Map();
+    for (const p of R.paths) grid.set(`${p.si}:${p.oi}:${p.li}`, p);
+    for (const p of R.paths) {
+      const nb = grid.get(`${p.si}:${p.oi}:${p.li + 1}`);
+      if (nb) fillSheet(c, p, nb, 0.34 / Math.sqrt(p.nO));
+      const nb2 = grid.get(`${p.si}:${p.oi + 1}:${p.li}`);
+      if (nb2) fillSheet(c, p, nb2, p.nL > 2 ? 0.72 / p.nL : 0.4, p.nL > 2);
+    }
+  }
+
+  function drawRays(c, px) {
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    drawSheets(c);
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    const passes = [
+      { w: 12, a: 0.014 },
+      { w: 4.2, a: 0.05 },
+      { w: 1.3, a: 0.5 },
+    ];
+    for (const pass of passes) {
+      c.lineWidth = pass.w * px;
+      for (const p of R.paths) {
+        let boost = p.nL <= 2 && pass.w > 2 ? 9 : 1;
+        if (p.nO > 1 && p.nL > 2) boost *= pass.w > 2 ? 0.5 : 0.3;
+        c.strokeStyle = rgba(colOf(p.lambda), Math.min(1, pass.a * boost * p.I));
+        c.beginPath();
+        c.moveTo(p.pts[0], p.pts[1]);
+        for (let i = 2; i < p.pts.length; i += 2) c.lineTo(p.pts[i], p.pts[i + 1]);
+        c.stroke();
+      }
+    }
+    // 빛이 닿은 자리
+    for (const p of R.paths) {
+      const n = p.pts.length, x = p.pts[n - 2], y = p.pts[n - 1];
+      const mono = p.nL <= 2;
+      const r = (mono ? 11 : 8) * px;
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      const col = colOf(p.lambda);
+      g.addColorStop(0, rgba(col, mono ? 0.7 : Math.min(0.25, 9 / p.nL / p.nO))); g.addColorStop(1, rgba(col, 0));
+      c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+  }
+
+  /* ---------- 부품 그리기 ---------- */
+  function partGeom(o) {
+    const def = PARTS[o.type];
+    const params = Object.assign({}, def.defaults, o.params || {});
+    return { params, g: def.build(params) };
+  }
+
+  function withLocal(c, o, fn) {
+    c.save(); c.translate(o.x, o.y); c.rotate(o.rot * Math.PI / 180); fn(); c.restore();
+  }
+
+  function glassStyle(c, px, y0, y1) {
+    const g = c.createLinearGradient(0, y0, 0, y1);
+    g.addColorStop(0, 'rgba(205,230,255,0.17)');
+    g.addColorStop(1, 'rgba(150,190,235,0.06)');
+    c.fillStyle = g; c.fill();
+    c.strokeStyle = C.glassEdge; c.lineWidth = 1.3 * px; c.stroke();
+  }
+
+  function drawObj(c, o, px) {
+    const { params: p, g } = partGeom(o);
+    withLocal(c, o, () => {
+      switch (o.type) {
+        case 'prism': {
+          const s = p.side, a = s / Math.sqrt(3);
+          c.beginPath(); c.moveTo(0, -a); c.lineTo(s / 2, a / 2); c.lineTo(-s / 2, a / 2); c.closePath();
+          glassStyle(c, px, -a, a / 2);
+          const q = 0.82;
+          c.beginPath(); c.moveTo(0, -a * q); c.lineTo(s / 2 * q, a / 2 * q); c.lineTo(-s / 2 * q, a / 2 * q); c.closePath();
+          c.strokeStyle = 'rgba(255,255,255,0.10)'; c.lineWidth = px; c.stroke();
+          break;
+        }
+        case 'lensConvex': {
+          const { R: Rr, t, e } = g.geo, ph = Math.asin(p.h / Rr);
+          c.beginPath();
+          c.moveTo(-e / 2, -p.h); c.lineTo(e / 2, -p.h);
+          c.arc(t / 2 - Rr, 0, Rr, -ph, ph, false);
+          c.lineTo(-e / 2, p.h);
+          c.arc(Rr - t / 2, 0, Rr, Math.PI - ph, Math.PI + ph, false);
+          c.closePath();
+          glassStyle(c, px, -p.h, p.h);
+          axisTicks(c, p.h, px);
+          break;
+        }
+        case 'lensConcave': {
+          const { R: Rr, sag, c0 } = g.geo, ph = Math.asin(p.h / Rr), ex = c0 / 2 + sag;
+          c.beginPath();
+          c.moveTo(-ex, -p.h); c.lineTo(ex, -p.h);
+          c.arc(c0 / 2 + Rr, 0, Rr, Math.PI + ph, Math.PI - ph, true);
+          c.lineTo(-ex, p.h);
+          c.arc(-c0 / 2 - Rr, 0, Rr, ph, -ph, true);
+          c.closePath();
+          glassStyle(c, px, -p.h, p.h);
+          axisTicks(c, p.h, px);
+          break;
+        }
+        case 'mirror': {
+          c.beginPath(); c.rect(0, -p.h, 7, 2 * p.h);
+          mirrorBack(c, px, () => { c.beginPath(); c.rect(0, -p.h, 7, 2 * p.h); });
+          c.beginPath(); c.moveTo(0, -p.h); c.lineTo(0, p.h);
+          mirrorFront(c, px);
+          break;
+        }
+        case 'mirrorConcave': {
+          const { R: Rr, phi } = g.geo;
+          const shape = () => { c.beginPath(); c.arc(-Rr, 0, Rr, -phi, phi, false); c.arc(-Rr, 0, Rr + 7, phi * Rr / (Rr + 7), -phi * Rr / (Rr + 7), true); c.closePath(); };
+          mirrorBack(c, px, shape);
+          c.beginPath(); c.arc(-Rr, 0, Rr, -phi, phi, false);
+          mirrorFront(c, px);
+          break;
+        }
+        case 'mirrorConvex': {
+          const { R: Rr, phi } = g.geo;
+          const p2 = Math.asin(p.h / (Rr - 7));
+          const shape = () => { c.beginPath(); c.arc(Rr, 0, Rr, Math.PI - phi, Math.PI + phi, false); c.arc(Rr, 0, Rr - 7, Math.PI + p2, Math.PI - p2, true); c.closePath(); };
+          mirrorBack(c, px, shape);
+          c.beginPath(); c.arc(Rr, 0, Rr, Math.PI - phi, Math.PI + phi, false);
+          mirrorFront(c, px);
+          break;
+        }
+        case 'slit': {
+          const hl = p.len / 2, hg = p.gap / 2, ht = p.th / 2 + 1;
+          for (const [y0, y1] of [[-hl, -hg], [hg, hl]]) {
+            c.beginPath(); c.rect(-ht, y0, 2 * ht, y1 - y0);
+            c.fillStyle = '#2b313a'; c.fill();
+            c.strokeStyle = '#59636f'; c.lineWidth = px; c.stroke();
+          }
+          c.strokeStyle = 'rgba(230,236,244,0.75)'; c.lineWidth = 1.2 * px;
+          c.beginPath(); c.moveTo(-ht, -hg); c.lineTo(ht, -hg); c.moveTo(-ht, hg); c.lineTo(ht, hg); c.stroke();
+          c.fillStyle = '#7b8594';
+          for (const y of [-hl + 8, hl - 8]) { c.beginPath(); c.arc(0, y, 1.8, 0, Math.PI * 2); c.fill(); }
+          break;
+        }
+        case 'source': drawSource(c, o, p, px); break;
+        case 'sensor': drawSensor(c, o, p, px); break;
+      }
+    });
+  }
+
+  // 정반에 볼트로 고정된 부품 표시
+  function drawPin(c, o, px) {
+    c.save();
+    c.beginPath(); c.arc(o.x, o.y, 5.5, 0, Math.PI * 2); c.fillStyle = '#3a424d'; c.fill();
+    c.strokeStyle = '#7b8594'; c.lineWidth = px; c.stroke();
+    c.beginPath(); c.moveTo(o.x - 3, o.y); c.lineTo(o.x + 3, o.y); c.moveTo(o.x, o.y - 3); c.lineTo(o.x, o.y + 3);
+    c.strokeStyle = '#151a20'; c.lineWidth = 1.4 * px; c.stroke();
+    c.restore();
+  }
+
+  function axisTicks(c, h, px) {
+    c.strokeStyle = 'rgba(205,232,255,0.35)'; c.lineWidth = px;
+    c.beginPath(); c.moveTo(0, -h - 6); c.lineTo(0, -h - 2); c.moveTo(0, h + 2); c.lineTo(0, h + 6); c.stroke();
+  }
+
+  function mirrorBack(c, px, shape) {
+    shape(); c.fillStyle = '#20262e'; c.fill();
+    c.save(); shape(); c.clip();
+    c.strokeStyle = 'rgba(160,172,188,0.35)'; c.lineWidth = px;
+    c.beginPath();
+    for (let y = -70; y < 70; y += 6) { c.moveTo(-10, y); c.lineTo(14, y + 24); }
+    c.stroke(); c.restore();
+    shape(); c.strokeStyle = '#4b5562'; c.lineWidth = px; c.stroke();
+  }
+
+  function mirrorFront(c, px) {
+    c.lineCap = 'round';
+    c.strokeStyle = 'rgba(220,235,255,0.25)'; c.lineWidth = 5 * px; c.stroke();
+    c.strokeStyle = C.silver; c.lineWidth = 2.2 * px; c.stroke();
+  }
+
+  function roundRect(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+
+  function drawSource(c, o, p, px) {
+    roundRect(c, -50, -17, 50, 34, 4);
+    const g = c.createLinearGradient(0, -17, 0, 17);
+    g.addColorStop(0, '#343b45'); g.addColorStop(1, '#22272f');
+    c.fillStyle = g; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+    // 방열 홈
+    c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 1.4 * px;
+    c.beginPath(); for (let x = -42; x <= -22; x += 5) { c.moveTo(x, -11); c.lineTo(x, 11); } c.stroke();
+    // 출사구
+    const col = p.spectrum === 'mono' ? colOf(p.lambda) : [255, 250, 240];
+    const hw = Math.max(4, (p.width || 0) / 2 + 3);
+    c.fillStyle = '#0b0d10'; c.fillRect(-6, -Math.min(15, hw + 2), 6, 2 * Math.min(15, hw + 2));
+    c.save(); c.globalCompositeOperation = 'lighter';
+    const gl = c.createRadialGradient(0, 0, 0, 0, 0, 18);
+    gl.addColorStop(0, rgba(col, 0.55)); gl.addColorStop(1, rgba(col, 0));
+    c.fillStyle = gl; c.beginPath(); c.arc(0, 0, 18, 0, Math.PI * 2); c.fill();
+    c.restore();
+    c.fillStyle = rgba(col, 0.95); c.fillRect(-2.5, -Math.min(13, hw), 2.5, 2 * Math.min(13, hw));
+  }
+
+  function drawSensor(c, o, p, px) {
+    const hl = p.len / 2;
+    roundRect(c, 0, -hl - 4, 22, 2 * hl + 8, 3);
+    const g = c.createLinearGradient(0, 0, 22, 0);
+    g.addColorStop(0, '#2f3640'); g.addColorStop(1, '#20252c');
+    c.fillStyle = g; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+    // 수광면
+    const res = evalRes.find(r => r.obj === o);
+    c.fillStyle = '#0a0d10'; c.fillRect(-3, -hl, 5, 2 * hl);
+    if (res && res.hits.length) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      for (const h of res.hits) {
+        const y = -hl + h.u * 2 * hl, col = colOf(h.lambda);
+        const gr = c.createRadialGradient(-1, y, 0, -1, y, 9);
+        gr.addColorStop(0, rgba(col, 0.6)); gr.addColorStop(1, rgba(col, 0));
+        c.fillStyle = gr; c.fillRect(-10, y - 9, 20, 18);
+      }
+      c.restore();
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.08)'; c.lineWidth = px;
+    c.beginPath(); for (let y = -hl + 10; y < hl; y += 10) { c.moveTo(-3, y); c.lineTo(2, y); } c.stroke();
+    // 상태 LED
+    if (o.goal) {
+      const on = res && res.ok;
+      c.beginPath(); c.arc(13, -hl + 6, 3, 0, Math.PI * 2);
+      c.fillStyle = on ? C.ok : '#3a2622'; c.fill();
+      if (on) {
+        c.save(); c.globalCompositeOperation = 'lighter';
+        const gr = c.createRadialGradient(13, -hl + 6, 0, 13, -hl + 6, 12);
+        gr.addColorStop(0, 'rgba(116,217,159,0.6)'); gr.addColorStop(1, 'rgba(116,217,159,0)');
+        c.fillStyle = gr; c.beginPath(); c.arc(13, -hl + 6, 12, 0, Math.PI * 2); c.fill(); c.restore();
+      }
+    }
+  }
+
+  function drawWall(c, o, px) {
+    const { params: p } = partGeom(o);
+    withLocal(c, o, () => {
+      const x0 = -p.w / 2, y0 = -p.h / 2;
+      c.beginPath(); c.rect(x0, y0, p.w, p.h); c.fillStyle = C.wall; c.fill();
+      c.save(); c.beginPath(); c.rect(x0, y0, p.w, p.h); c.clip();
+      c.strokeStyle = 'rgba(255,255,255,0.045)'; c.lineWidth = 3 * px;
+      c.beginPath(); for (let x = x0 - p.h - 40; x < x0 + p.w + 40; x += 12) { c.moveTo(x, y0 + p.h + 2); c.lineTo(x + p.h + 4, y0 - 2); } c.stroke();
+      c.restore();
+      c.beginPath(); c.rect(x0, y0, p.w, p.h); c.strokeStyle = C.wallEdge; c.lineWidth = px; c.stroke();
+    });
+  }
+
+  function tapePath(c, x, y, w, h) {
+    const z = 3;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + w, y);
+    for (let i = 1; i <= 4; i++) c.lineTo(x + w + (i % 2 ? -z : 0), y + h * i / 4);
+    c.lineTo(x, y + h);
+    for (let i = 3; i >= 0; i--) c.lineTo(x + (i % 2 ? z : 0), y + h * i / 4);
+    c.closePath();
+  }
+
+  function drawLabel(c, o, px) {
+    const ls = clamp(scale / 0.95, 0.72, 1);
+    const fs = 17 * ls * px;
+    c.save();
+    c.font = `${fs}px "Nanum Pen Script", "Gaegu", cursive`;
+    const tw = c.measureText(o.label).width;
+    const w = tw + 16 * ls * px, h = 21 * ls * px;
+    // 빛이 드나드는 쪽은 피해서 위 → 아래 → 오른쪽 → 왼쪽 순으로 자리를 찾는다
+    const bb = worldBox(o), gap = 7 * px, th = o.rot * Math.PI / 180;
+    const fx = o.type === 'sensor' ? -Math.cos(th) : Math.cos(th), fy = o.type === 'sensor' ? -Math.sin(th) : Math.sin(th);
+    const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+    const spots = [
+      { skip: fy < -0.6, x: cx - w / 2, y: bb[1] - h - gap },
+      { skip: fy > 0.6, x: cx - w / 2, y: bb[3] + gap },
+      { skip: fx > 0.6, x: bb[2] + gap, y: cy - h / 2 },
+      { skip: fx < -0.6, x: bb[0] - w - gap, y: cy - h / 2 },
+    ];
+    const fits = s => s.x >= 2 * px && s.y >= 2 * px && s.x + w <= W - 2 * px && s.y + h <= H - 2 * px;
+    const spot = spots.find(s => !s.skip && fits(s)) || spots.find(s => !s.skip) || spots[0];
+    const x = clamp(spot.x, 4 * px, W - w - 4 * px), y = clamp(spot.y, 4 * px, H - h - 4 * px);
+    c.translate(x + w / 2, y + h / 2); c.rotate(-0.025);
+    c.scale(px, px);
+    tapePath(c, -w / 2 / px, -h / 2 / px, w / px, h / px);
+    c.fillStyle = C.tape; c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 4; c.shadowOffsetY = 1; c.fill();
+    c.shadowColor = 'transparent';
+    c.fillStyle = C.tapeInk; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `${17 * ls}px "Nanum Pen Script", "Gaegu", cursive`;
+    c.fillText(o.label, 0, 1.5);
+    c.restore();
+  }
+
+  function worldBox(o) {
+    const b = partGeom(o).g.box, th = o.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [lx, ly] of [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]]) {
+      const x = o.x + lx * c - ly * s, y = o.y + lx * s + ly * c;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    return [x0, y0, x1, y1];
+  }
+
+  function knobPos(o) {
+    const r = Math.max(PARTS[o.type].radius, 30 / scale);
+    const th = o.rot * Math.PI / 180;
+    return { x: o.x + r * Math.sin(th), y: o.y - r * Math.cos(th), r };
+  }
+
+  function drawSelection(c, o, px) {
+    const k = knobPos(o);
+    c.save();
+    c.setLineDash([4 * px, 4 * px]);
+    c.strokeStyle = 'rgba(243,196,71,0.55)'; c.lineWidth = px;
+    c.beginPath(); c.arc(o.x, o.y, k.r, 0, Math.PI * 2); c.stroke();
+    c.setLineDash([]);
+    c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(k.x, k.y); c.strokeStyle = 'rgba(243,196,71,0.4)'; c.stroke();
+    c.beginPath(); c.arc(o.x, o.y, 2.5 * px, 0, Math.PI * 2); c.fillStyle = C.accent; c.fill();
+    c.beginPath(); c.arc(k.x, k.y, 8 * px, 0, Math.PI * 2); c.fillStyle = C.accent; c.fill();
+    c.strokeStyle = '#1a1606'; c.lineWidth = 1.4 * px;
+    c.beginPath(); c.arc(k.x, k.y, 4 * px, -Math.PI * 0.9, Math.PI * 0.35); c.stroke();
+    if (drag && drag.kind === 'rotate') {
+      c.font = `600 ${12 * px}px "IBM Plex Mono", ui-monospace, monospace`;
+      c.fillStyle = C.accent; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(`${fmtDeg(o.rot)}°`, k.x + 13 * px, k.y);
+    }
+    c.restore();
+  }
+
+  const fmtDeg = d => (Math.round(normDeg(d) * 10) / 10).toFixed(1);
+
+  /* ---------- 조작 ---------- */
+  function toWorld(e) {
+    const r = cv.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H,
+      inside: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom,
+    };
+  }
+
+  function localOf(o, x, y) {
+    const th = o.rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    const dx = x - o.x, dy = y - o.y;
+    return { x: dx * c + dy * s, y: -dx * s + dy * c };
+  }
+
+  function pick(p) {
+    const pad = 10 + 6 / scale;
+    for (let i = S.objs.length - 1; i >= 0; i--) {
+      const o = S.objs[i];
+      if (o.locked || o.hidden || o.type === 'wall') continue;
+      const b = partGeom(o).g.box, l = localOf(o, p.x, p.y);
+      if (l.x >= b[0] - pad && l.x <= b[2] + pad && l.y >= b[1] - pad && l.y <= b[3] + pad) return o;
+    }
+    return null;
+  }
+
+  function select(o) { S.sel = o ? o.id : null; dirty = true; updateSelPanel(); }
+
+  cv.addEventListener('pointerdown', e => {
+    if (S.overlay) return;
+    const p = toWorld(e), sel = selObj();
+    const tol = (e.pointerType === 'touch' ? 22 : 13) / scale;
+    if (sel) {
+      const k = knobPos(sel);
+      if (Math.hypot(p.x - k.x, p.y - k.y) < tol) {
+        drag = { kind: 'rotate', obj: sel };
+        cv.setPointerCapture(e.pointerId); e.preventDefault(); dirty = true; return;
+      }
+    }
+    const o = pick(p);
+    if (o) {
+      select(o);
+      drag = { kind: 'move', obj: o, dx: o.x - p.x, dy: o.y - p.y };
+      // 맨 위로
+      S.objs.splice(S.objs.indexOf(o), 1); S.objs.push(o);
+      cv.setPointerCapture(e.pointerId); e.preventDefault();
+      cv.style.cursor = 'grabbing';
+      dismissCoach();
+    } else select(null);
+  });
+
+  cv.addEventListener('pointermove', e => {
+    const p = toWorld(e);
+    if (!drag) {
+      const sel = selObj();
+      let cur = 'default';
+      if (sel) { const k = knobPos(sel); if (Math.hypot(p.x - k.x, p.y - k.y) < 13 / scale) cur = 'alias'; }
+      if (cur === 'default' && pick(p)) cur = 'grab';
+      cv.style.cursor = cur;
+      return;
+    }
+    onDragMove(e, p);
+  });
+
+  function onDragMove(e, p) {
+    const o = drag.obj;
+    if (drag.kind === 'move') {
+      o.x = clamp(p.x + drag.dx, 8, W - 8); o.y = clamp(p.y + drag.dy, 8, H - 8);
+      const out = !p.inside && !o.locked && (S.mode === 'lab' ? o.type !== 'source' && o.type !== 'sensor' : true);
+      o.hidden = out;
+      boardWrap.classList.toggle('dropping-out', out);
+    } else if (drag.kind === 'rotate') {
+      let a = Math.atan2(p.y - o.y, p.x - o.x) * 180 / Math.PI + 90;
+      a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 10) / 10;
+      o.rot = normDeg(a);
+    }
+    retrace();
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    const o = drag.obj;
+    if (drag.kind === 'move' && o.hidden) returnToInv(o);
+    drag = null;
+    boardWrap.classList.remove('dropping-out');
+    cv.style.cursor = 'default';
+    retrace();
+  }
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  cv.addEventListener('wheel', e => {
+    const sel = selObj();
+    if (!sel || S.overlay) return;
+    const p = toWorld(e);
+    if (Math.hypot(p.x - sel.x, p.y - sel.y) > knobPos(sel).r + 20) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 0.5;
+    sel.rot = normDeg(sel.rot + (e.deltaY > 0 ? step : -step));
+    retrace();
+  }, { passive: false });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, textarea, select')) return;
+    if (!modal.hidden) { if (e.key === 'Escape') closeModal(); return; }
+    if (S.overlay) { if (e.key === 'Escape') hideClear(); return; }
+    const sel = selObj();
+    if (!sel) return;
+    let used = true;
+    const big = e.shiftKey ? 10 : 1;
+    switch (e.key) {
+      case 'q': case 'Q': case '[': sel.rot = normDeg(sel.rot - (e.shiftKey ? 10 : 0.5)); break;
+      case 'e': case 'E': case ']': sel.rot = normDeg(sel.rot + (e.shiftKey ? 10 : 0.5)); break;
+      case 'ArrowLeft': sel.x = clamp(sel.x - big, 8, W - 8); break;
+      case 'ArrowRight': sel.x = clamp(sel.x + big, 8, W - 8); break;
+      case 'ArrowUp': sel.y = clamp(sel.y - big, 8, H - 8); break;
+      case 'ArrowDown': sel.y = clamp(sel.y + big, 8, H - 8); break;
+      case 'Delete': case 'Backspace': if (canReturn(sel)) returnToInv(sel); else used = false; break;
+      case 'Escape': select(null); break;
+      default: used = false;
+    }
+    if (used) { e.preventDefault(); retrace(); }
+  });
+
+  const canReturn = o => !o.locked && !(S.mode === 'lab' && (o.type === 'source' || o.type === 'sensor'));
+
+  function returnToInv(o) {
+    if (!canReturn(o)) { o.hidden = false; return; }
+    S.objs.splice(S.objs.indexOf(o), 1);
+    const k = o.key || o.type;
+    if (S.inv[k] !== Infinity) S.inv[k] = (S.inv[k] || 0) + 1;
+    if (S.sel === o.id) S.sel = null;
+    updateInv();
+    retrace();
+  }
+
+  // 부품함 칸(key) → 실제 부품 종류·매개변수·이름. 같은 종류라도 초점거리가 다르면 칸이 따로 있다
+  function partDef(key) {
+    const st = S.mode === 'stage' ? STAGES[S.stage] : null;
+    const v = st && st.parts && st.parts[key];
+    const type = v ? v.type : key;
+    const extra = st ? ((st.partParams || {})[key] || {}) : {};
+    const params = Object.assign({}, extra, v ? v.params : {});
+    const name = (v && v.name) || (st && (st.partNames || {})[key]) || PARTS[type].name;
+    return { type, params, name };
+  }
+
+  function newPiece(key) {
+    const d = partDef(key), params = { ...d.params };
+    if (S.mode === 'lab' && d.type === 'slit') params.gap = S.lab.gap;
+    return { type: d.type, key, x: W / 2, y: H / 2, rot: DEFAULT_ROT[d.type] || 0, params, id: uid++, locked: false };
+  }
+
+  function freeSpot() {
+    const cands = [];
+    for (let r = 0; r < 6; r++) for (let a = 0; a < 8; a++) {
+      const ang = a * Math.PI / 4 + r * 0.4;
+      cands.push({ x: W * 0.45 + Math.cos(ang) * r * 70, y: H * 0.5 + Math.sin(ang) * r * 55 });
+    }
+    for (const c of cands) {
+      if (c.x < 60 || c.x > W - 60 || c.y < 60 || c.y > H - 60) continue;
+      if (S.objs.every(o => Math.hypot(o.x - c.x, o.y - c.y) > 95)) return c;
+    }
+    return { x: W / 2, y: H / 2 };
+  }
+
+  function commitPiece(o) {
+    const k = o.key || o.type;
+    if (S.inv[k] !== Infinity) S.inv[k]--;
+    S.placed = true;
+    dismissCoach();
+    updateInv();
+  }
+
+  /* ---------- 패널 ---------- */
+  const boardWrap = $('#boardWrap');
+  const panel = $('#panel');
+  const stageOf = () => STAGES[S.stage];
+  const partName = k => partDef(k).name;
+  const partParamsOf = k => Object.assign({}, PARTS[partDef(k).type].defaults, partDef(k).params);
+  function partSpec(t, p) {
+    if (t.startsWith('lens') || t === 'mirrorConcave' || t === 'mirrorConvex') return `f ${p.f < 0 ? '−' + Math.abs(p.f) : p.f}`;
+    if (t === 'slit') return `폭 ${S.mode === 'lab' ? S.lab.gap : p.gap}`;
+    if (t === 'mirror') return `${2 * p.h} mm`;
+    return '60°';
+  }
+
+  const goalSensors = () => S.objs.filter(o => o.type === 'sensor' && (S.mode === 'lab' || o.goal));
+
+  function buildPanel() {
+    let html = '';
+    if (S.mode === 'stage') {
+      const st = stageOf();
+      html += `
+        <section class="sec mission">
+          <div class="tape tape-lg">스테이지 ${st.id} · ${st.title}</div>
+          <p class="tools"><span>도구</span>${st.tools}</p>
+          <p class="brief">${st.brief}</p>
+        </section>`;
+    } else {
+      html += `
+        <section class="sec mission">
+          <div class="tape tape-lg">자유 실험실</div>
+          <p class="brief">부품을 마음껏 놓아 보세요. 광원과 센서도 옮기고 돌릴 수 있어요.</p>
+          <div class="ctrl">
+            <div class="seg" role="group" aria-label="광원 종류">
+              <button id="specWhite" class="seg-b" aria-pressed="${S.lab.spectrum === 'white'}">백색광</button>
+              <button id="specMono" class="seg-b" aria-pressed="${S.lab.spectrum === 'mono'}">단색광</button>
+            </div>
+            <label class="slider" ${S.lab.spectrum === 'mono' ? '' : 'hidden'} id="lamWrap">
+              <span class="sw" id="lamSw"></span>
+              <input id="lam" type="range" min="400" max="700" step="5" value="${S.lab.lambda}" aria-label="파장">
+              <span class="mono" id="lamVal">${S.lab.lambda} nm</span>
+            </label>
+            <div class="seg" role="group" aria-label="빔 굵기">
+              <button id="beamThin" class="seg-b" aria-pressed="${!S.lab.wide}">가는 빔</button>
+              <button id="beamWide" class="seg-b" aria-pressed="${S.lab.wide}">넓은 평행광</button>
+            </div>
+            <label class="slider">
+              <span class="lab-s">슬릿 폭</span>
+              <input id="gap" type="range" min="6" max="60" step="1" value="${S.lab.gap}" aria-label="슬릿 폭">
+              <span class="mono" id="gapVal">${S.lab.gap} mm</span>
+            </label>
+          </div>
+        </section>`;
+    }
+    const sensors = goalSensors();
+    const multi = sensors.length > 1;
+    html += `
+      <section class="sec readout">
+        <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount"></span></div>
+        <div class="rds">
+          ${sensors.map((o, i) => `
+            <div class="rd" data-i="${i}">
+              ${multi ? `<div class="rd-h"><span class="rd-name">${o.label}</span><span class="mono dim rd-n"></span></div>` : ''}
+              <canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>
+              <div class="meters"></div>
+            </div>`).join('')}
+        </div>
+      </section>
+      <section class="sec">
+        <div class="sec-h"><span>부품함</span><span class="dim small">끌어서 놓거나 눌러서 꺼내기</span></div>
+        <div class="inv" id="inv"></div>
+      </section>
+      <section class="sec" id="selSec">
+        <div class="sec-h"><span>선택한 부품</span></div>
+        <div id="selBody"></div>
+      </section>
+      <section class="sec actions">
+        ${S.mode === 'stage'
+          ? `<button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>`
+          : `<button class="btn" id="clearAll">부품 모두 회수</button>`}
+        <div id="hintBox"></div>
+      </section>
+      <details class="sec phys">
+        <summary>조작법과 이 실험대의 물리</summary>
+        <ul>
+          <li><b>이동</b> 부품을 끌기 · 방향키 1 mm (Shift 10 mm)</li>
+          <li><b>회전</b> 노란 손잡이 끌기 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
+          <li><b>회수</b> 판 밖으로 끌어내기 · Delete</li>
+        </ul>
+        <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
+        <p>프리즘 유리는 색 분리가 잘 보이도록 분산을 과장했어요. n = 1.67(400 nm) ~ 1.50(700 nm). 렌즈는 분산이 작은 유리(n ≈ 1.52)예요. 렌즈와 곡면 거울의 초점거리 f는 부품함에 적혀 있어요.</p>
+        <p>회절은 다루지 않는 기하광학 모형입니다. 볼트 표시가 있는 부품은 정반에 고정되어 움직일 수 없어요.</p>
+      </details>`;
+    panel.innerHTML = html;
+    bindPanel();
+    updateInv();
+    updateSelPanel();
+    updateCoach();
+    resizeSpec();
+    updateReadout();
+  }
+
+  function bindPanel() {
+    const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+    on('hintBtn', 'click', () => {
+      S.hintStep = Math.min(stageOf().hints.length, S.hintStep + 1);
+      renderHints();
+    });
+    on('answerBtn', 'click', () => openModal());
+    on('resetBtn', 'click', () => { loadStage(S.stage); });
+    on('clearAll', 'click', () => {
+      S.objs.filter(o => canReturn(o)).forEach(o => S.objs.splice(S.objs.indexOf(o), 1));
+      S.sel = null; updateInv(); retrace();
+    });
+    on('specWhite', 'click', () => { S.lab.spectrum = 'white'; labChanged(true); });
+    on('specMono', 'click', () => { S.lab.spectrum = 'mono'; labChanged(true); });
+    on('beamThin', 'click', () => { S.lab.wide = false; labChanged(true); });
+    on('beamWide', 'click', () => { S.lab.wide = true; labChanged(true); });
+    on('lam', 'input', e => { S.lab.lambda = +e.target.value; labChanged(false); });
+    on('gap', 'input', e => { S.lab.gap = +e.target.value; labChanged(false); updateInv(); });
+    renderHints();
+    paintLam();
+  }
+
+  function labChanged(rebuild) {
+    applyLabSource();
+    if (rebuild) {
+      $('#specWhite').setAttribute('aria-pressed', S.lab.spectrum === 'white');
+      $('#specMono').setAttribute('aria-pressed', S.lab.spectrum === 'mono');
+      $('#beamThin').setAttribute('aria-pressed', !S.lab.wide);
+      $('#beamWide').setAttribute('aria-pressed', S.lab.wide);
+      $('#lamWrap').hidden = S.lab.spectrum !== 'mono';
+    }
+    const lv = $('#lamVal'); if (lv) lv.textContent = `${S.lab.lambda} nm`;
+    const gv = $('#gapVal'); if (gv) gv.textContent = `${S.lab.gap} mm`;
+    paintLam();
+    retrace();
+  }
+
+  function paintLam() {
+    const sw = $('#lamSw'); if (sw) sw.style.background = rgba(colOf(S.lab.lambda), 1);
+  }
+
+  function renderHints() {
+    const box = $('#hintBox'); if (!box) return;
+    if (S.mode !== 'stage') { box.innerHTML = ''; return; }
+    const st = stageOf();
+    box.innerHTML = st.hints.slice(0, S.hintStep).map((h, i) => `<p class="hint"><span class="mono">${i + 1}</span>${h}</p>`).join('');
+    const btn = $('#hintBtn');
+    if (btn) { btn.disabled = S.hintStep >= st.hints.length; btn.textContent = S.hintStep ? `힌트 ${S.hintStep}/${st.hints.length}` : '힌트 보기'; }
+  }
+
+  /* 부품함 */
+  const iconCache = {};
+  function partIcon(type, params) {
+    const key = type + JSON.stringify(params);
+    if (iconCache[key]) return iconCache[key];
+    const c = document.createElement('canvas');
+    const d = Math.min(2.5, window.devicePixelRatio || 1);
+    c.width = 56 * d; c.height = 44 * d;
+    const x = c.getContext('2d');
+    const r = PARTS[type].radius;
+    const k = (34 / (r * 1.45)) * d;
+    x.setTransform(k, 0, 0, k, c.width / 2, c.height / 2);
+    const o = { type, x: 0, y: type === 'prism' ? 8 : 0, rot: 0, params: { ...params, ...(type === 'slit' ? { gap: 22 } : {}) } };
+    drawObj(x, o, d / k);
+    iconCache[key] = c.toDataURL();
+    return iconCache[key];
+  }
+
+  function updateInv() {
+    const box = $('#inv'); if (!box) return;
+    const types = S.mode === 'lab' ? LAB_PARTS : Object.keys(S.inv);
+    box.style.gridTemplateColumns = `repeat(${Math.min(4, Math.max(3, types.length))}, minmax(0, 1fr))`;
+    box.innerHTML = types.map(t => {
+      const n = S.inv[t], p = partParamsOf(t), ty = partDef(t).type;
+      const cnt = n === Infinity ? '∞' : `×${n}`;
+      return `<button class="part" data-key="${t}" ${n > 0 ? '' : 'disabled'} aria-label="${partName(t)} ${partSpec(ty, p)}, ${n === Infinity ? '무제한' : n + '개'}">
+        <img src="${partIcon(ty, p)}" alt="" width="56" height="44"><span class="pn">${partName(t)}</span><span class="pf mono">${partSpec(ty, p)}</span><span class="pc mono">${cnt}</span></button>`;
+    }).join('');
+    box.querySelectorAll('.part').forEach(bindPart);
+  }
+
+  function bindPart(btn) {
+    const type = btn.dataset.key;
+    let st = null;
+    btn.addEventListener('pointerdown', e => {
+      if (btn.disabled || S.overlay || !(S.inv[type] > 0)) return;
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      st = { sx: e.clientX, sy: e.clientY, obj: null };
+    });
+    btn.addEventListener('pointermove', e => {
+      if (!st) return;
+      if (!st.obj) {
+        if (Math.hypot(e.clientX - st.sx, e.clientY - st.sy) < 6) return;
+        st.obj = newPiece(type); st.obj.hidden = true;
+        S.objs.push(st.obj); select(st.obj);
+        drag = { kind: 'new', obj: st.obj };
+      }
+      const p = toWorld(e), o = st.obj;
+      o.x = clamp(p.x, 8, W - 8); o.y = clamp(p.y, 8, H - 8);
+      o.hidden = !p.inside;
+      retrace();
+    });
+    const up = () => {
+      if (!st) return;
+      const o = st.obj; st = null; drag = null;
+      if (!o) {
+        const o2 = newPiece(type), sp = freeSpot();
+        o2.x = sp.x; o2.y = sp.y;
+        S.objs.push(o2); commitPiece(o2); select(o2);
+      } else if (o.hidden) {
+        S.objs.splice(S.objs.indexOf(o), 1); S.sel = null;
+      } else commitPiece(o);
+      retrace();
+    };
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', () => {
+      if (st && st.obj) { S.objs.splice(S.objs.indexOf(st.obj), 1); S.sel = null; }
+      st = null; drag = null; retrace();
+    });
+  }
+
+  /* 선택한 부품 */
+  function updateSelPanel() {
+    const box = $('#selBody'); if (!box) return;
+    const o = selObj();
+    if (!o || o.hidden) {
+      box.innerHTML = `<p class="dim small">판 위의 부품을 누르면 여기서 각도와 위치를 정밀하게 조정할 수 있어요.</p>`;
+      box.dataset.id = '';
+      return;
+    }
+    if (box.dataset.id !== String(o.id)) {
+      box.dataset.id = String(o.id);
+      box.innerHTML = `
+        <div class="sel-top"><b id="selName"></b><span class="mono dim" id="selPos"></span></div>
+        <div class="rot-row">
+          <button class="btn sm" data-r="-10" aria-label="반시계 10도">−10°</button>
+          <button class="btn sm" data-r="-0.5" aria-label="반시계 0.5도">−0.5°</button>
+          <span class="mono ang" id="selAng"></span>
+          <button class="btn sm" data-r="0.5" aria-label="시계 0.5도">+0.5°</button>
+          <button class="btn sm" data-r="10" aria-label="시계 10도">+10°</button>
+        </div>
+        <button class="btn sm ghost" id="selRet">부품함으로 회수</button>`;
+      box.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
+        const s = selObj(); if (!s) return; s.rot = normDeg(s.rot + +b.dataset.r); retrace();
+      }));
+      $('#selRet').addEventListener('click', () => { const s = selObj(); if (s) returnToInv(s); });
+    }
+    $('#selName').textContent = PARTS[o.type].short ? partName(o.key || o.type) : (o.label || PARTS[o.type].name);
+    $('#selPos').textContent = `x ${Math.round(o.x)} · y ${Math.round(o.y)} mm`;
+    $('#selAng').textContent = `${fmtDeg(o.rot)}°`;
+    $('#selRet').hidden = !canReturn(o);
+  }
+
+  /* 판독기 */
+  function resizeSpec() {
+    const multi = goalSensors().length > 1;
+    document.querySelectorAll('canvas.spec').forEach(cv2 => {
+      const w = cv2.getBoundingClientRect().width || 280, h = multi ? 70 : 92;
+      const d = Math.min(2.5, window.devicePixelRatio || 1);
+      cv2.style.height = `${h}px`;
+      cv2.width = Math.round(w * d); cv2.height = Math.round(h * d);
+      cv2._d = d; cv2._w = w; cv2._h = h;
+    });
+  }
+
+  function drawSpectrum(cv2, res) {
+    const c = cv2.getContext('2d'), d = cv2._d || 1, w = cv2._w || 280, h = cv2._h || 92;
+    c.setTransform(d, 0, 0, d, 0, 0);
+    c.clearRect(0, 0, w, h);
+    const x0 = 6, x1 = w - 6, top = 17, base = h - 26;
+    const X = l => x0 + (l - 400) / 300 * (x1 - x0);
+    c.fillStyle = '#0b0e12'; c.fillRect(0, 0, w, h);
+    // 목표 대역
+    const bandCheck = res && res.obj.goal && res.obj.goal.checks.find(k => k.band);
+    if (bandCheck) {
+      const a = X(bandCheck.band[0] - 2.5), b = X(bandCheck.band[1] + 2.5);
+      c.fillStyle = 'rgba(232,217,160,0.07)'; c.fillRect(a, 0, b - a, base);
+      c.setLineDash([3, 3]); c.strokeStyle = 'rgba(232,217,160,0.6)'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(a + 0.5, top - 2); c.lineTo(a + 0.5, base); c.moveTo(b - 0.5, top - 2); c.lineTo(b - 0.5, base); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = 'rgba(232,217,160,0.9)'; c.font = '600 10px "IBM Plex Sans KR", system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText('목표', (a + b) / 2, 3);
+    }
+    for (let l = 400; l <= 700; l += 2) {
+      c.fillStyle = rgba(colOf(l), 0.5); c.fillRect(X(l), base + 3, (x1 - x0) / 150 + 0.6, 4);
+    }
+    const perLam = new Map();
+    for (const l of R.emitted) perLam.set(l, (perLam.get(l) || 0) + 1);
+    const got = new Map();
+    if (res) for (const hh of res.hits) got.set(hh.lambda, (got.get(hh.lambda) || 0) + hh.I);
+    const lams = [...perLam.keys()].sort((a, b) => a - b);
+    const stepNm = lams.length > 1 ? Math.min(...lams.slice(1).map((l, i) => l - lams[i])) : 5;
+    const bw = Math.max(2, (x1 - x0) / 300 * Math.min(10, stepNm) * 0.72);
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (const l of lams) {
+      const v = (got.get(l) || 0) / perLam.get(l);
+      if (!v) continue;
+      const bh = (base - top) * Math.min(1, v), col = colOf(l);
+      const g = c.createLinearGradient(0, base - bh, 0, base);
+      g.addColorStop(0, rgba(col, 1)); g.addColorStop(1, rgba(col, 0.35));
+      c.fillStyle = g; c.fillRect(X(l) - bw / 2, base - bh, bw, bh);
+    }
+    c.restore();
+    c.fillStyle = '#7f8896'; c.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+    c.textBaseline = 'top';
+    for (const l of [400, 500, 600, 700]) {
+      c.textAlign = l === 400 ? 'left' : l === 700 ? 'right' : 'center';
+      c.fillText(String(l), X(l), base + 10);
+    }
+    c.textAlign = 'center'; c.fillText('nm', (X(500) + X(600)) / 2, base + 10);
+  }
+
+  function updateReadout() {
+    if (!S) return;
+    const sensors = goalSensors();
+    const blocks = document.querySelectorAll('.rd');
+    let totalHits = 0;
+    blocks.forEach(bl => {
+      const o = sensors[+bl.dataset.i];
+      const res = evalRes.find(r => r.obj === o);
+      if (!res) return;
+      totalHits += res.hits.length;
+      drawSpectrum(bl.querySelector('canvas.spec'), res);
+      const n = bl.querySelector('.rd-n'); if (n) n.textContent = res.hits.length ? `${res.hits.length}줄` : '빛 없음';
+      const m = bl.querySelector('.meters');
+      if (res.checks) {
+        m.innerHTML = res.checks.map(k => `
+          <div class="meter ${k.ok ? 'ok' : ''}">
+            <div class="m-top"><span>${k.label}</span><span class="mono"><b>${k.text}</b> / ${k.needText}</span></div>
+            <div class="m-bar"><i style="width:${Math.min(100, k.frac * 100)}%"></i><s style="left:${Math.min(100, k.need * 100)}%"></s></div>
+          </div>`).join('') + `<p class="verdict ${res.ok ? 'ok' : ''}">${verdict(res)}</p>`;
+      } else {
+        const names = [...new Set(res.hits.map(hh => OPT.bandName(hh.lambda)))];
+        m.innerHTML = `<p class="verdict">${names.length ? '받은 색: ' + names.join(' · ') : '센서에 닿은 빛이 없어요.'}</p>`;
+      }
+    });
+    const hc = $('#hitCount');
+    if (hc) hc.textContent = sensors.length > 1 ? '' : (totalHits ? `${totalHits}줄 수신` : '빛 없음');
+  }
+
+  function verdict(r) {
+    if (!r.hits.length) return '센서에 닿은 빛이 아직 없어요.';
+    if (r.ok) return S.revealed ? '정답 배치에서 조건이 충족돼요.' : '조건 충족';
+    const bad = r.checks.find(k => !k.ok);
+    const g = r.obj.goal.checks[r.checks.indexOf(bad)];
+    switch (bad.kind) {
+      case 'purity': {
+        const others = [...new Set(r.hits.filter(h => h.lambda < g.band[0] || h.lambda > g.band[1]).map(h => OPT.bandName(h.lambda)))];
+        return `${others.join(' · ')} 빛이 섞여 있어요.`;
+      }
+      case 'band': return `${g.name} 빛이 너무 적게 들어와요.`;
+      case 'power': return '빛이 더 많이 들어와야 해요.';
+      case 'coverage': return '센서의 더 넓은 범위를 비춰야 해요.';
+      case 'parallel': return '광선이 나란하지 않아요. 퍼지거나 모이고 있어요.';
+      case 'white': return '빠진 색이 있어요. 모든 색을 한 점에 모아야 해요.';
+    }
+    return '조금만 더 맞춰 보세요.';
+  }
+
+  /* 코치 표식 */
+  const coach = $('#coach');
+  function updateCoach() {
+    const st = stageOf();
+    const show = S.mode === 'stage' && !S.placed && !S.revealed && st.coach;
+    coach.hidden = !show;
+    if (show) {
+      coach.style.left = `${st.coach.x / W * 100}%`;
+      coach.style.top = `${st.coach.y / H * 100}%`;
+      coach.querySelector('span').textContent = st.coach.text;
+    }
+  }
+  function dismissCoach() { if (S.mode === 'stage' && !S.placed && S.objs.some(o => !o.locked)) { S.placed = true; } updateCoach(); }
+
+  /* 스테이지 목록 */
+  const nav = $('#stageNav');
+  const chip = (st, i) => `<button class="st-b mono" data-stage="${i}" title="${st.id}. ${st.title} (${st.tools})" aria-label="스테이지 ${st.id} ${st.title}">${String(st.id).padStart(2, '0')}</button>`;
+  nav.innerHTML = [['기초', 0, 10], ['응용', 10, STAGES.length]].map(([name, a, b]) =>
+    `<div class="st-row"><span class="st-lab">${name}</span>${STAGES.slice(a, b).map((st, j) => chip(st, a + j)).join('')}</div>`).join('');
+  nav.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => loadStage(+b.dataset.stage)));
+  $('#labBtn').addEventListener('click', () => { if (S.mode !== 'lab') loadLab(); });
+  function updateNav() {
+    nav.querySelectorAll('[data-stage]').forEach(b => {
+      const i = +b.dataset.stage;
+      b.setAttribute('aria-pressed', String(S.mode === 'stage' && S.stage === i));
+      b.classList.toggle('done', cleared.has(STAGES[i].id));
+    });
+    $('#labBtn').setAttribute('aria-pressed', String(S.mode === 'lab'));
+    const n = cleared.size;
+    $('#progress').textContent = `${n} / ${STAGES.length} 클리어`;
+  }
+
+  /* 정답 보기 */
+  const modal = $('#giveup');
+  let lastFocus = null;
+  function openModal() {
+    if (S.mode !== 'stage') return;
+    lastFocus = document.activeElement;
+    modal.hidden = false;
+    requestAnimationFrame(() => modal.classList.add('in'));
+    $('#giveNo').focus({ preventScroll: true });
+  }
+  function closeModal() {
+    modal.classList.remove('in'); modal.hidden = true;
+    if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+  }
+  $('#giveNo').addEventListener('click', closeModal);
+  $('#giveYes').addEventListener('click', () => { closeModal(); revealSolution(); });
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  function revealSolution() {
+    const st = stageOf();
+    clearTimeout(winTimer);
+    S.objs = S.objs.filter(o => o.locked);
+    S.inv = { ...st.inventory };
+    for (const p of st.solution) {
+      const o = newPiece(p.key || p.type);
+      Object.assign(o, { x: p.x, y: p.y, rot: normDeg(p.rot) });
+      S.objs.push(o);
+      S.inv[p.key || p.type]--;
+    }
+    S.sel = null; S.revealed = true; S.placed = true; S.won = false;
+    S.hintStep = st.hints.length;
+    renderHints();
+    updateInv(); updateCoach(); updateStatus();
+    retrace();
+  }
+
+  const statusBar = $('#status');
+  function updateStatus() {
+    const show = S.mode === 'stage' && S.revealed;
+    statusBar.hidden = !show;
+    if (show) {
+      const last = S.stage >= STAGES.length - 1;
+      $('#statusNext').hidden = last;
+    }
+  }
+  $('#statusRetry').addEventListener('click', () => loadStage(S.stage));
+  $('#statusNext').addEventListener('click', () => loadStage(Math.min(STAGES.length - 1, S.stage + 1)));
+
+  /* 클리어 */
+  const clearEl = $('#clear');
+  function showClear() {
+    const st = stageOf();
+    const used = S.objs.filter(o => !o.locked).length;
+    const rows = [];
+    for (const r of evalRes) {
+      if (!r.checks) continue;
+      const multi = evalRes.filter(x => x.checks).length > 1;
+      for (const k of r.checks) rows.push([multi && !k.label.includes(r.obj.label) ? `${r.obj.label} · ${k.label}` : k.label, k.text]);
+    }
+    rows.push(['사용한 부품', `${used}개`]);
+    $('#clearEyebrow').textContent = `STAGE ${String(st.id).padStart(2, '0')} · 실험 기록`;
+    $('#clearTitle').textContent = st.clearTitle || '실험 성공';
+    $('#clearStats').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd class="mono">${v}</dd></div>`).join('');
+    const last = S.stage >= STAGES.length - 1;
+    $('#clearNext').textContent = last ? '자유 실험실 열기' : `다음 스테이지 ${String(st.id + 1).padStart(2, '0')}`;
+    clearEl.hidden = false;
+    requestAnimationFrame(() => clearEl.classList.add('in'));
+    $('#clearNext').focus({ preventScroll: true });
+  }
+  function hideClear() { if (!S) return; S.overlay = false; clearEl.classList.remove('in'); clearEl.hidden = true; dirty = true; }
+  $('#clearKeep').addEventListener('click', hideClear);
+  $('#clearRetry').addEventListener('click', () => { hideClear(); loadStage(S.stage); });
+  $('#clearNext').addEventListener('click', () => {
+    hideClear();
+    if (S.stage >= STAGES.length - 1) loadLab(); else loadStage(S.stage + 1);
+  });
+
+  /* ---------- 시작 ---------- */
+  function start(data) {
+    if (data && data.S && data.S.objs) {
+      S = data.S;
+      S.objs.forEach(o => { o.hidden = false; });
+      S.lab.spectrum = S.lab.spectrum || 'white';
+      uid = Math.max(1, ...S.objs.map(o => o.id)) + 1;
+      if (S.inv) for (const k in S.inv) if (S.inv[k] === null) S.inv[k] = Infinity;
+      S.overlay = false;
+      afterLoad();
+    } else loadStage(0);
+    resize();
+    new ResizeObserver(() => { resize(); resizeSpec(); updateReadout(); }).observe(boardWrap);
+    new ResizeObserver(() => { resizeSpec(); updateReadout(); }).observe(panel);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { buildBench(); dirty = true; updateReadout(); });
+    requestAnimationFrame(loop);
+  }
+
+  window.claude?.hot?.snapshot?.(() => ({
+    S: JSON.parse(JSON.stringify({ ...S, inv: Object.fromEntries(Object.entries(S.inv).map(([k, v]) => [k, v === Infinity ? null : v])) })),
+  }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+
+
+</script>
+</body>
+</html>
