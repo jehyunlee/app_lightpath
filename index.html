@@ -484,10 +484,10 @@ const OPT = (() => {
     },
     filter: {
       name: '색 필터', short: '색필터', radius: 55,
-      defaults: { h: 45, th: 8, min: 450, max: 495 },
+      defaults: { h: 45, th: 8, min: 450, max: 495, excl: false },
       build(p) {
         const out = []; rect(-p.th / 2, -p.h, p.th / 2, p.h, 'filter', out);
-        return { prims: out, band: [p.min, p.max], box: [-p.th / 2, -p.h, p.th / 2, p.h] };
+        return { prims: out, band: [p.min, p.max], excl: !!p.excl, box: [-p.th / 2, -p.h, p.th / 2, p.h] };
       },
     },
     // ---- 고정 장치 ----
@@ -530,10 +530,10 @@ const OPT = (() => {
     const prims = g.prims.map(p => {
       if (p.k === 's') {
         const [ax, ay] = tx(p.ax, p.ay), [bx, by] = tx(p.bx, p.by);
-        return { k: 's', ax, ay, bx, by, nx: p.nx * c - p.ny * s, ny: p.nx * s + p.ny * c, role: p.role, obj, mat: g.mat, band: g.band, refl: g.refl };
+        return { k: 's', ax, ay, bx, by, nx: p.nx * c - p.ny * s, ny: p.nx * s + p.ny * c, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl };
       }
       const [cx, cy] = tx(p.cx, p.cy);
-      return { k: 'a', cx, cy, r: p.r, a0: p.a0 + th, span: p.span, ns: p.ns, role: p.role, obj, mat: g.mat, band: g.band, refl: g.refl };
+      return { k: 'a', cx, cy, r: p.r, a0: p.a0 + th, span: p.span, ns: p.ns, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl };
     });
     return { prims, geom: g, params };
   }
@@ -663,7 +663,9 @@ const OPT = (() => {
       }
       if (role === 'filter') {
         const band = hit.p.band || [400, 700];
-        if (lam < band[0] || lam > band[1]) { end = { type: 'absorb', x: qx, y: qy }; return [{ lambda: lam, I, pts, tags, end, bi: branch }]; }
+        const inBand = lam >= band[0] && lam <= band[1];
+        const blocked = hit.p.excl ? inBand : !inBand;
+        if (blocked) { end = { type: 'absorb', x: qx, y: qy }; return [{ lambda: lam, I, pts, tags, end, bi: branch }]; }
         // 대역 안: 굴절 없이 그대로 통과한다
       } else if (role === 'mirror') {
         if (dn >= 0) { end = { type: 'absorb', x: qx, y: qy }; return [{ lambda: lam, I, pts, tags, end, bi: branch }]; }
@@ -757,6 +759,10 @@ const GAME = (() => {
         case 'band':
           v = bandStrength(c.band); ok = v >= c.min;
           r = { label: `${c.name} 세기`, frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}` };
+          break;
+        case 'band_max':
+          v = bandStrength(c.band); ok = v <= c.max;
+          r = { label: `${c.name} 차단`, frac: 1 - v, need: 1 - c.max, text: pct(v), needText: `기준 ≤ ${pct(c.max)}` };
           break;
         case 'purity': {
           v = total ? hits.filter(h => inB(h.lambda, c.band)).reduce((s, h) => s + h.I, 0) / total : 0;
@@ -1272,54 +1278,55 @@ const GAME = (() => {
       ],
     },
     {
-      id: 21, title: '빔스플리터로 둘로 나누기', tools: '빔스플리터 · 평면거울 · 볼록렌즈',
-      clearTitle: '세 부품을 조합해 빛을 두 센서로 보냈어요',
-      brief: '백색광을 <b>빔스플리터</b>로 반사/통과 두 갈래로 나누세요. 반사된 빛은 <b>평면거울</b>로 꺾어 오른쪽 센서로, 통과한 빛은 <b>볼록렌즈</b>로 모아 바늘구멍(16 mm)을 지나 아래쪽 센서로 보내세요.',
+      id: 21, title: '프리즘 하나로 두 번', tools: '프리즘 · 평면거울 · 볼록렌즈',
+      clearTitle: '프리즘 하나에 빛을 두 번 통과시켜 순수한 빨강을 얻었어요',
+      brief: '벽 너머 작은 바늘구멍(12 mm) 뒤 센서에 <b>빨간빛(625–700 nm)</b>만, 아주 높은 순도로 보내세요. 가진 프리즘은 하나뿐이에요.',
       fixed: [
-        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 30, rays: 7 }, label: '백색광' },
-        { type: 'sensor', x: 700, y: 150, rot: 0, params: { len: 70 }, label: '위쪽 센서',
-          goal: { checks: [{ kind: 'power', min: 0.35 }] } },
-        ...pinhole(900, 320, 0, 16),
-        behind(900, 320, 0, 25, 70, '오른쪽 센서', { checks: [{ kind: 'power', min: 0.35 }] }),
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        ...pinhole(138.4, 30, 231.2, 12),
+        behind(138.4, 30, 231.2, 25, 70, '센서', { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.8 }, { kind: 'purity', name: '빨강', band: [625, 700], min: 0.95 }] }),
       ],
-      inventory: { splitter: 1, mirror: 1, lensConvex: 1 },
+      inventory: { prism: 1, mirror: 1, lensConvex: 1 },
       hints: [
-        '빔스플리터를 광선과 정확히 45°로 세워 반사 빛과 통과 빛으로 나누세요.',
-        '반사된 빛(위로 꺾임)은 평면거울로 다시 오른쪽을 향해 꺾어 위쪽 센서로 보내세요.',
-        '통과한 빛은 볼록렌즈로 모아 바늘구멍을 지나게 하세요.',
+        '프리즘 하나로 얻을 수 있는 분산은 생각보다 약해요. 무지개를 거울로 되돌려 같은 프리즘에 한 번 더 통과시키면 어떨까요?',
+        '두 번 분산된 빛은 색마다 완전히 다른 방향으로 흩어져요. 그중 한 줄기만 렌즈로 모아 센서에 넣어 보세요.',
       ],
       solution: [
-        { type: 'splitter', x: 400, y: 320, rot: 45 },
-        { type: 'mirror', x: 400, y: 150, rot: 225 },
-        { type: 'lensConvex', x: 760, y: 320, rot: 0 },
+        { type: 'prism', x: 300, y: 320, rot: 22 },
+        { type: 'mirror', x: 489.71, y: 506.62, rot: 44.8 },
+        { type: 'lensConvex', x: 323, y: 259.3, rot: 231.2 },
       ],
     },
     {
-      id: 22, title: '프리즘 뒤의 초록 필터', tools: '프리즘 · 색 필터 · 볼록렌즈',
-      clearTitle: '분산된 빛에서 필터로 초록만 모았어요',
-      brief: '백색광을 <b>프리즘</b>으로 분산시키고, <b>색 필터</b>로 초록빛(500–565 nm)만 남기세요. 이어서 <b>볼록렌즈</b>로 모아 바늘구멍을 지나 센서에 닿게 하세요.',
+      id: 22, title: '한 색만 빼고 전부', tools: '색 필터 · 평면거울 · 볼록렌즈',
+      clearTitle: '초록만 쏙 빼고 나머지 색을 모두 보냈어요',
+      brief: '백색광에서 <b>초록빛(500–565 nm)만 제외</b>하고 나머지 색은 모두 센서에 보내세요.',
       fixed: [
-        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
-        ...pinhole(616, 590, 51, 12),
-        behind(616, 590, 51, 28, 70, '센서', { checks: [{ kind: 'band', name: '초록', band: [500, 565], min: 0.35 }, { kind: 'purity', name: '초록', band: [500, 565], min: 0.9 }] }),
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 20, rays: 7 }, label: '백색광' },
+        ...pinhole(500, 50, 270, 10),
+        behind(500, 50, 270, 25, 70, '센서', { checks: [
+          { kind: 'band_max', name: '초리', band: [500, 565], max: 0.15 },
+          { kind: 'band', name: '빨강', band: [625, 700], min: 0.85 },
+          { kind: 'band', name: '파랑', band: [450, 495], min: 0.85 },
+          { kind: 'power', min: 0.6 },
+        ] }),
       ],
-      inventory: { prism: 1, filter: 1, lensConvex: 1 },
-      partParams: { filter: { min: 500, max: 565 } },
+      inventory: { filter: 1, mirror: 1, lensConvex: 1 },
+      partParams: { filter: { min: 500, max: 565, excl: true } },
       hints: [
-        '프리즘(22°)으로 백색광을 부채꼴 무지개로 분산시키세요.',
-        '색 필터는 슬릿과 달리 위치보다 각도가 중요해요. 무지개 가운데(약 51°)에 필터를 세워 초록만 남기세요.',
-        '필터를 지난 초록빛을 볼록렌즈로 모아 바늘구멍을 통과시키세요.',
+        '색 필터는 지정한 대역만 "통과"시키는 줄 알았다면 다시 보세요 — 반대로 그 대역만 "차단"하게 뒤집을 수도 있어요.',
+        '필터를 지난 빛을 거울로 꺾고, 렌즈로 모아 바늘구멍을 지나게 하세요.',
       ],
       solution: [
-        { type: 'prism', x: 230, y: 120, rot: 22 },
-        { type: 'filter', x: 371, y: 287, rot: 51 },
-        { type: 'lensConvex', x: 421, y: 349, rot: 51 },
+        { type: 'filter', x: 300, y: 320, rot: 0 },
+        { type: 'mirror', x: 500, y: 320, rot: 45 },
+        { type: 'lensConvex', x: 500, y: 150, rot: 270 },
       ],
     },
     {
-      id: 23, title: '전반사 턴 + 거울 확장기', tools: '직각 프리즘 · 볼록거울 · 오목거울',
+      id: 23, title: '꺾어서 넓히기', tools: '직각 프리즘 · 볼록거울 · 오목거울',
       clearTitle: '프리즘으로 꺾은 빛을 거울로 넓혔어요',
-      brief: '가는 평행광을 <b>직각 프리즘</b>으로 꺾어 방향을 바꾼 뒤, <b>볼록거울</b>과 <b>오목거울</b>로 넓은 평행광을 만들어 센서에 보내세요. 스테이지 15와 같은 거울 조합을, 프리즘으로 방향을 바꾼 빛에 적용해 보세요.',
+      brief: '가는 평행광의 방향을 바꾼 뒤, 넓고 나란한 평행광으로 만들어 센서 전체를 비추세요.',
       fixed: [
         { type: 'source', x: 25, y: 50, rot: 90, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
         { type: 'sensor', x: 950, y: 270, rot: 0, params: { len: 80 }, label: '센서',
@@ -1328,8 +1335,8 @@ const GAME = (() => {
       inventory: { prismRight: 1, mirrorConvex: 1, mirrorConcave: 1 },
       partParams: { mirrorConvex: { f: 70, h: 20 }, mirrorConcave: { f: 210, h: 50 } },
       hints: [
-        '직각 프리즘을 광원 바로 아래(x=25)에 두면 아래로 내려오는 빛이 오른쪽으로 꺾여요.',
-        '꺾인 빛은 그 뒤로 스테이지 15와 똑같은 거울 두 장(볼록거울 f70, 오목거울 f210)으로 넓히면 돼요.',
+        '빛은 위에서 아래로 내려오고 있어요. 먼저 방향을 꺾을 방법부터 찾아보세요.',
+        '방향을 꺾은 뒤에는 두 거울이 짝을 이뤄 가는 빛을 넓은 평행광으로 바꿔줄 거예요.',
       ],
       solution: [
         { type: 'prismRight', x: 25, y: 200, rot: 180 },
@@ -1338,33 +1345,32 @@ const GAME = (() => {
       ],
     },
     {
-      id: 24, title: '나누고, 거르고, 모으고', tools: '빔스플리터 · 색 필터 · 볼록렌즈',
-      clearTitle: '세 부품으로 두 갈래 빛을 각각 완성했어요',
-      brief: '백색광을 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 <b>색 필터</b>로 파란빛만 남겨 센서로, 통과한 빛은 <b>볼록렌즈</b>로 모아 바늘구멍을 지나 다른 센서로 보내세요.',
+      id: 24, title: '빗각 스플리터', tools: '빔스플리터 · 색 필터 · 볼록렌즈',
+      clearTitle: '45°가 아닌 각도로도 정확히 나눴어요',
+      brief: '빛을 둘로 나누세요. 한쪽은 <b>파란빛(450–495 nm)</b>만 순수하게, 다른 쪽은 밝기 충분히 센서에 보내세요.',
       fixed: [
-        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 30, rays: 5 }, label: '백색광' },
-        { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '파랑 센서',
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 16, rays: 7 }, label: '백색광' },
+        { type: 'sensor', x: 235, y: 34.2, rot: 240, params: { len: 90 }, label: '파랑 센서',
           goal: { checks: [{ kind: 'band', name: '파랑', band: [450, 495], min: 0.35 }, { kind: 'purity', name: '파랑', band: [450, 495], min: 0.9 }] } },
-        ...pinhole(900, 320, 0, 16),
+        ...pinhole(900, 320, 0, 10),
         behind(900, 320, 0, 25, 70, '통과 센서', { checks: [{ kind: 'power', min: 0.35 }] }),
       ],
       inventory: { splitter: 1, filter: 1, lensConvex: 1 },
       partParams: { filter: { min: 450, max: 495 } },
       hints: [
-        '빔스플리터를 45°로 세우면 위로 반사된 빛과 오른쪽으로 통과한 빛으로 나뉘어요.',
-        '반사된 빛(위쪽 방향)에는 필터를 90°로 세워야 빛을 가로막아요.',
-        '통과한 빛은 볼록렌즈로 모아 바늘구멍을 지나게 하세요.',
+        '빔스플리터는 꼭 45°일 필요 없어요. 반사 각도는 입사각에 따라 정해져요 — 반사된 빛이 어디로 향하는지 직접 확인해 보세요.',
+        '통과한 빛은 렌즈로 모아 바늘구멍을 지나게 하세요.',
       ],
       solution: [
-        { type: 'splitter', x: 400, y: 320, rot: 45 },
-        { type: 'filter', x: 400, y: 150, rot: 90 },
+        { type: 'splitter', x: 400, y: 320, rot: 30 },
+        { type: 'filter', x: 300, y: 146.8, rot: 240 },
         { type: 'lensConvex', x: 760, y: 320, rot: 0 },
       ],
     },
     {
       id: 25, title: '잠망경 + 렌즈 초점', tools: '직각 프리즘 · 평면거울 · 볼록렌즈',
       clearTitle: '프리즘과 거울로 돌리고 렌즈로 모았어요',
-      brief: '넓은 평행광을 <b>직각 프리즘</b>으로 위로 꺾고, <b>평면거울</b>로 다시 오른쪽으로 돌리는 잠망경을 만드세요. 이어서 <b>볼록렌즈</b>로 모아 바늘구멍을 지나 센서에 닿게 하세요.',
+      brief: '넓은 평행광의 높이를 바꿔 돌아간 다음, 한 점에 모아 바늘구멍을 지나 센서에 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 300, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 30, rays: 5 }, label: '레이저 520 nm' },
         ...pinhole(700, 150, 0, 20),
@@ -1373,9 +1379,8 @@ const GAME = (() => {
       inventory: { prismRight: 1, mirror: 1, lensConvex: 1 },
       partParams: { lensConvex: { f: 150, h: 40 } },
       hints: [
-        '직각 프리즘(기본 각도)을 광선 중간(x=300)에 두면 빛이 위로 꺾여요.',
-        '위로 꺾인 빛을 평면거울(225°)로 받아 다시 오른쪽을 향해 돌리세요.',
-        '오른쪽으로 나온 평행광을 볼록렌즈로 모아 바늘구멍을 통과시키세요.',
+        '직각 프리즘과 평면거울을 짝지으면 빛의 방향은 그대로 두고 높이만 바꾸는 잠망경을 만들 수 있어요.',
+        '높이를 바꾼 뒤 나온 평행광을 렌즈로 모아 바늘구멍을 통과시키세요.',
       ],
       solution: [
         { type: 'prismRight', x: 300, y: 300, rot: 90 },
@@ -1384,80 +1389,77 @@ const GAME = (() => {
       ],
     },
     {
-      id: 26, title: '나눠서, 분산까지', tools: '빔스플리터 · 프리즘 · 색 필터',
-      clearTitle: '스플리터 뒤 프리즘 분산에서 필터로 골랐어요',
-      brief: '백색광을 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 그대로 센서로, 통과한 빛은 <b>프리즘</b>으로 분산시킨 뒤 <b>색 필터</b>로 초록빛만 걸러 다른 센서에 보내세요.',
+      id: 26, title: '장애물을 피해서', tools: '평면거울 3개',
+      clearTitle: '벽을 피해 거울 세 번으로 빛을 보냈어요',
+      brief: '가운데 가로막은 벽을 피해, 거울만으로 빛을 반대편 센서까지 보내세요.',
       fixed: [
-        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
-        { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '위쪽 센서',
-          goal: { checks: [{ kind: 'power', min: 0.35 }] } },
-        { type: 'sensor', x: 950, y: 650, rot: 41.76, params: { len: 80 }, label: '초록 센서',
-          goal: { checks: [{ kind: 'band', name: '초록', band: [500, 565], min: 0.35 }, { kind: 'purity', name: '초록', band: [500, 565], min: 0.9 }] } },
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 16, rays: 5 }, label: '백색광' },
+        { type: 'wall', x: 500, y: 400, rot: 0, params: { w: 20, h: 300 }, label: '가로막' },
+        { type: 'sensor', x: 650, y: 450, rot: 90, params: { len: 80 }, label: '센서',
+          goal: { checks: [{ kind: 'power', min: 0.7 }] } },
       ],
-      inventory: { splitter: 1, prism: 1, filter: 1 },
-      partParams: { filter: { min: 500, max: 565 } },
+      inventory: { mirror: 3 },
       hints: [
-        '빔스플리터를 45°로 세워 반사 빛과 통과 빛으로 나누세요.',
-        '통과한 빛(수평) 위에 프리즘(22°)을 두면 무지개가 아래로 퍼져요.',
-        '퍼진 무지개 가운데(약 42°)에 필터를 그 각도로 세워 초록만 센서로 보내세요.',
+        '벽은 가운데 넓은 구간을 막고 있어요. 벽 위쪽으로 돌아가는 길을 거울로 만들어 보세요.',
+        '거울 세 번으로 올라갔다 건너갔다 다시 내려오는 지그재그 길을 만들면 돼요.',
       ],
       solution: [
-        { type: 'splitter', x: 400, y: 320, rot: 45 },
-        { type: 'prism', x: 600, y: 320, rot: 22 },
-        { type: 'filter', x: 782.7, y: 484.75, rot: 41.76 },
+        { type: 'mirror', x: 300, y: 320, rot: 45 },
+        { type: 'mirror', x: 300, y: 180, rot: 225 },
+        { type: 'mirror', x: 650, y: 180, rot: 315 },
       ],
     },
     {
-      id: 27, title: '나누고 넓히기', tools: '빔스플리터 · 볼록거울 · 오목거울',
-      clearTitle: '스플리터로 나눈 한쪽을 거울로 넓혔어요',
-      brief: '백색광을 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 그대로 센서로, 통과한 빛은 <b>볼록거울</b>과 <b>오목거울</b>로 넓은 평행광으로 만들어 다른 센서에 보내세요.',
+      id: 27, title: '비스듬히 나누고 넓히기', tools: '빔스플리터 · 볼록거울 · 오목거울',
+      clearTitle: '45°가 아닌 스플리터로 나누고 거울로 넓혔어요',
+      brief: '빛을 둘로 나누세요. 한쪽은 센서에 밝기만 충분히, 다른 쪽은 넓고 나란한 평행광으로 만들어 센서 전체를 비추세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
-        { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '위쪽 센서',
+        { type: 'sensor', x: 550, y: 60.2, rot: 300, params: { len: 80 }, label: '반사 센서',
           goal: { checks: [{ kind: 'power', min: 0.35 }] } },
-        { type: 'sensor', x: 950, y: 390, rot: 0, params: { len: 80 }, label: '오른쪽 센서',
+        { type: 'sensor', x: 950, y: 390, rot: 0, params: { len: 80 }, label: '통과 센서',
           goal: { checks: [{ kind: 'coverage', min: 0.55 }, { kind: 'parallel', max: 1.5 }, { kind: 'power', min: 0.35 }] } },
       ],
       inventory: { splitter: 1, mirrorConvex: 1, mirrorConcave: 1 },
       partParams: { mirrorConvex: { f: 70, h: 20 }, mirrorConcave: { f: 210, h: 50 } },
       hints: [
-        '빔스플리터를 45°로 세우면 통과한 빛이 그대로 오른쪽으로 나가요.',
-        '통과한 빛줄기에는 스테이지 15와 같은 거울 두 장(볼록거울 f70, 오목거울 f210)을 두면 넓은 평행광이 돼요.',
+        '이번에도 빔스플리터는 45°가 아니에요. 반사된 빛이 실제로 어디로 가는지 직접 확인해 보세요.',
+        '통과한 빛(방향은 바뀌지 않아요)에는 두 거울을 짝지어 넓은 평행광을 만드세요.',
       ],
       solution: [
-        { type: 'splitter', x: 400, y: 320, rot: 45 },
+        { type: 'splitter', x: 400, y: 320, rot: 60 },
         { type: 'mirrorConvex', x: 600, y: 320, rot: -15 },
         { type: 'mirrorConcave', x: 479, y: 390, rot: 165 },
       ],
     },
     {
-      id: 28, title: '나누고 퍼뜨리고 꺾기', tools: '빔스플리터 · 오목렌즈 · 직각 프리즘',
-      clearTitle: '세 부품으로 서로 다른 두 길을 만들었어요',
-      brief: '레이저를 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 <b>오목렌즈</b>로 퍼뜨려 넓은 센서에, 통과한 빛은 <b>직각 프리즘</b>으로 꺾어 위쪽 센서에 보내세요.',
+      id: 28, title: '꺾고 한 색 빼고 모으기', tools: '직각 프리즘 · 색 필터 · 볼록렌즈',
+      clearTitle: '보라-파랑만 빼고 나머지를 바늘구멍에 넣었어요',
+      brief: '빛의 방향을 꺾은 뒤 <b>보라-파랑(400–495 nm)만 제외</b>하고 나머지 색을 모아 바늘구멍을 지나 센서에 보내세요.',
       fixed: [
-        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 16, rays: 5 }, label: '레이저 520 nm' },
-        { type: 'sensor', x: 400, y: 40, rot: 270, params: { len: 90 }, label: '넓은 센서',
-          goal: { checks: [{ kind: 'coverage', min: 0.3 }, { kind: 'power', min: 0.35 }] } },
-        { type: 'sensor', x: 600, y: 100, rot: 270, params: { len: 80 }, label: '꺾인 센서',
-          goal: { checks: [{ kind: 'power', min: 0.35 }] } },
+        { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 30, rays: 9 }, label: '백색광' },
+        ...pinhole(650, 580, 90, 18),
+        behind(650, 580, 90, 25, 70, '센서', { checks: [
+          { kind: 'band_max', name: '보라-파랑', band: [400, 495], max: 0.15 },
+          { kind: 'power', min: 0.5 },
+        ] }),
       ],
-      inventory: { splitter: 1, lensConcave: 1, prismRight: 1 },
-      partParams: { lensConcave: { f: -120, h: 30 } },
+      inventory: { prismRight: 1, filter: 1, lensConvex: 1 },
+      partParams: { filter: { min: 400, max: 495, excl: true } },
       hints: [
-        '빔스플리터를 45°로 세워 반사 빛과 통과 빛으로 나누세요.',
-        '위로 반사된 빛에는 오목렌즈를 90°로 세워 빛을 퍼뜨리세요.',
-        '통과한 빛(오른쪽)에는 직각 프리즘(90°)을 두면 위쪽으로 꺾여요.',
+        '직각 프리즘으로 먼저 빛의 방향을 꺾으세요.',
+        '필터를 지난 빛은 폭이 넓어서, 렌즈 없이는 바늘구멍을 충분히 통과하지 못해요.',
       ],
       solution: [
-        { type: 'splitter', x: 400, y: 320, rot: 45 },
-        { type: 'lensConcave', x: 400, y: 200, rot: 90 },
-        { type: 'prismRight', x: 600, y: 320, rot: 90 },
+        { type: 'prismRight', x: 650, y: 320, rot: 0 },
+        { type: 'filter', x: 650, y: 420, rot: 90 },
+        { type: 'lensConvex', x: 650, y: 470, rot: 90 },
       ],
     },
     {
       id: 29, title: '퍼뜨리고 나누고 거르기', tools: '오목렌즈 · 빔스플리터 · 색 필터',
       clearTitle: '세 부품으로 두 갈래 빛을 각각 완성했어요',
-      brief: '가는 백색광을 <b>오목렌즈</b>로 넓게 퍼뜨린 다음 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 넓은 센서를 골고루 비춰야 하고, 통과한 빛은 <b>색 필터</b>로 초록빛만 남겨 센서에 닿게 하세요.',
+      brief: '빛을 넓게 퍼뜨린 다음 둘로 나누세요. 한쪽은 센서 전체를 골고루 비춰야 하고, 다른 쪽은 <b>초록빛(500–565 nm)</b>만 순수하게 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 16, rays: 9 }, label: '백색광' },
         { type: 'sensor', x: 420, y: 80, rot: 270, params: { len: 140 }, label: '넓은 센서',
@@ -1468,9 +1470,8 @@ const GAME = (() => {
       inventory: { lensConcave: 1, splitter: 1, filter: 1 },
       partParams: { lensConcave: { f: -150, h: 30 }, splitter: { h: 100 }, filter: { min: 500, max: 565 } },
       hints: [
-        '오목렌즈(0°)로 가는 백색광을 먼저 넓게 퍼뜨리세요. 오목렌즈 없이는 빛이 너무 가늘어 넓은 센서를 충분히 비추지 못해요.',
-        '그 다음 빔스플리터(45°)로 두 갈래로 나누세요.',
-        '통과한 빛(오른쪽)에 색 필터를 0°로 세워 초록빛만 남겨 두 번째 센서로 보내세요.',
+        '오목렌즈 없이는 빛이 너무 가늘어서 넓은 센서를 충분히 비추지 못해요.',
+        '스플리터로 나눈 뒤, 통과한 빛에 필터를 세워 초록빛만 남기세요.',
       ],
       solution: [
         { type: 'lensConcave', x: 220, y: 320, rot: 0 },
@@ -1481,20 +1482,22 @@ const GAME = (() => {
     {
       id: 30, title: '광학 실험실 종합', tools: '빔스플리터 · 색 필터 · 직각 프리즘 · 평면거울',
       clearTitle: '네 부품을 모두 조합해 완성했어요',
-      brief: '백색광을 <b>빔스플리터</b>로 나누세요. 위로 반사된 빛은 <b>색 필터</b>로 빨간빛만 걸러 센서로, 통과한 빛은 <b>직각 프리즘</b>과 <b>평면거울</b>로 두 번 꺾어 다른 센서로 보내세요.',
+      brief: '빛을 둘로 나누세요. 한쪽은 <b>빨간빛(625–700 nm)만 제외</b>하고 센서에, 다른 쪽은 방향을 두 번 꺾어 다른 센서에 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 16, rays: 5 }, label: '백색광' },
-        { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '빨강 센서',
-          goal: { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.35 }, { kind: 'purity', name: '빨강', band: [625, 700], min: 0.9 }] } },
+        { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '제외 센서',
+          goal: { checks: [
+            { kind: 'band_max', name: '빨강', band: [625, 700], max: 0.15 },
+            { kind: 'band', name: '초록', band: [500, 565], min: 0.35 },
+          ] } },
         { type: 'sensor', x: 900, y: 480, rot: 0, params: { len: 80 }, label: '백색 센서',
           goal: { checks: [{ kind: 'power', min: 0.35 }] } },
       ],
       inventory: { splitter: 1, filter: 1, prismRight: 1, mirror: 1 },
-      partParams: { filter: { min: 625, max: 700 } },
+      partParams: { filter: { min: 625, max: 700, excl: true } },
       hints: [
-        '빔스플리터(45°)로 먼저 반사 빛과 통과 빛을 나누세요.',
-        '위로 반사된 빛에는 필터를 90°로 세워 빨간빛만 남기세요.',
-        '통과한 빛은 직각 프리즘(기본 각도)으로 아래로 꺾은 뒤, 평면거울(135°)로 다시 오른쪽을 향해 꺾으세요.',
+        '지금까지 배운 모든 부품을 한 번씩 써야 할 거예요. 스플리터로 먼저 두 갈래로 나누세요.',
+        '한쪽은 필터로 특정 색을 제외하고, 다른 쪽은 직각 프리즘과 거울을 짝지어 방향을 두 번 바꾸세요.',
       ],
       solution: [
         { type: 'splitter', x: 400, y: 320, rot: 45 },
@@ -1948,8 +1951,18 @@ const GAME = (() => {
           const ht = p.th / 2;
           const col = wlRGB((p.min + p.max) / 2);
           c.beginPath(); c.rect(-ht, -p.h, 2 * ht, 2 * p.h);
-          c.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.4)`; c.fill();
-          c.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},0.9)`; c.lineWidth = px; c.stroke();
+          if (p.excl) {
+            c.fillStyle = 'rgba(40,44,52,0.55)'; c.fill();
+            c.save(); c.beginPath(); c.rect(-ht, -p.h, 2 * ht, 2 * p.h); c.clip();
+            c.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},0.9)`; c.lineWidth = 1.6 * px;
+            c.beginPath();
+            for (let y = -p.h - 2 * ht; y < p.h + 2 * ht; y += 5) { c.moveTo(-ht, y); c.lineTo(ht, y + 2 * ht); }
+            c.stroke(); c.restore();
+            c.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},0.9)`; c.lineWidth = px; c.stroke();
+          } else {
+            c.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.4)`; c.fill();
+            c.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},0.9)`; c.lineWidth = px; c.stroke();
+          }
           break;
         }
         case 'source': drawSource(c, o, p, px); break;
@@ -2671,6 +2684,7 @@ const GAME = (() => {
         return `${others.join(' · ')} 빛이 섞여 있어요.`;
       }
       case 'band': return `${g.name} 빛이 너무 적게 들어와요.`;
+      case 'band_max': return `${g.name} 빛이 아직 너무 많이 섮여 있어요.`;
       case 'power': return '빛이 더 많이 들어와야 해요.';
       case 'coverage': return '센서의 더 넓은 범위를 비춰야 해요.';
       case 'parallel': return '광선이 나란하지 않아요. 퍼지거나 모이고 있어요.';
