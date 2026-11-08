@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>광로 실험실</title>
+<title>물리 실험실</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap">
@@ -253,8 +253,8 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
 <div class="app">
   <header class="top">
     <div class="brand">
-      <h1>광로 실험실</h1>
-      <p>빛을 꺾고, 나누고, 골라내는 광학 퍼즐</p>
+      <h1>물리 실험실</h1>
+      <p>빛을 꺾고 모으고, 구슬을 굴리는 물리 퍼즐</p>
     </div>
     <nav class="modes" aria-label="스테이지 선택">
       <span class="prog mono" id="progress">0 / 20 클리어</span>
@@ -518,6 +518,50 @@ const OPT = (() => {
         return { prims: out, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
       },
     },
+    // ---- 역학 장치 (빛은 막고, 구슬과 충돌한다) ----
+    plank: {
+      name: '판자', short: '판자', radius: 70,
+      defaults: { len: 140, th: 8 },
+      build(p) {
+        const out = []; rect(-p.len / 2, -p.th / 2, p.len / 2, p.th / 2, 'absorb', out);
+        return { prims: out, box: [-p.len / 2, -p.th / 2, p.len / 2, p.th / 2] };
+      },
+    },
+    paper: {
+      // 윗면·아랫면은 받은 빛을 기록하는 'paper' 역할. spot(mm) 안에 need 비율 이상의 빛이 모이면 탄다.
+      // reflect: [min,max] 대역은 종이 색이라 반사되어 가열에 보태지 않는다.
+      name: '종이', radius: 0,
+      defaults: { w: 90, th: 3, spot: 14, need: 0.8, reflect: null },
+      build(p) {
+        const hw = p.w / 2, ht = p.th / 2;
+        const out = [
+          { k: 's', ax: -hw, ay: -ht, bx: hw, by: -ht, nx: 0, ny: -1, role: 'paper' },
+          { k: 's', ax: -hw, ay: ht, bx: hw, by: ht, nx: 0, ny: 1, role: 'paper' },
+          { k: 's', ax: -hw, ay: -ht, bx: -hw, by: ht, nx: -1, ny: 0, role: 'absorb' },
+          { k: 's', ax: hw, ay: -ht, bx: hw, by: ht, nx: 1, ny: 0, role: 'absorb' },
+        ];
+        return { prims: out, box: [-hw, -ht, hw, ht] };
+      },
+    },
+    ball: {
+      name: '쇠구슬', radius: 0,
+      defaults: { r: 9, m: 1 },
+      build(p) { return { prims: [], box: [-p.r, -p.r, p.r, p.r] }; },
+    },
+    loadcell: {
+      name: '로드셀', radius: 0,
+      defaults: { w: 70, h: 12 },
+      build(p) {
+        const out = []; rect(-p.w / 2, -p.h / 2, p.w / 2, p.h / 2, 'absorb', out);
+        return { prims: out, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
+      },
+    },
+    pendulum: {
+      // (x,y)는 축. L 길이의 줄 끝에 반지름 r, 질량 m의 추. a0: 초기 각도(°, 0 = 아래로 늘어짐)
+      name: '진자', radius: 0,
+      defaults: { L: 120, r: 12, m: 1, a0: 0 },
+      build(p) { return { prims: [], box: [-p.L - p.r, -p.r, p.L + p.r, p.L + p.r] }; },
+    },
   };
 
   // 부품 하나의 월드 좌표 기본 도형
@@ -599,7 +643,7 @@ const OPT = (() => {
     const prims = [];
     const sources = [];
     for (const o of objs) {
-      if (o.hidden) continue;
+      if (o.hidden || o.burnt) continue;
       const wp = worldPrims(o);
       for (const p of wp.prims) prims.push(p);
       if (o.type === 'source') sources.push({ o, params: wp.params });
@@ -659,6 +703,15 @@ const OPT = (() => {
           sensorHits.get(s.obj).push({ lambda: lam, I, u, dx, dy });
           end = { type: 'sensor', x: qx, y: qy, obj: s.obj };
         } else end = { type: 'absorb', x: qx, y: qy };
+        return [{ lambda: lam, I, pts, tags, end, bi: branch }];
+      }
+      if (role === 'paper') {
+        // 종이는 빛을 흡수하면서 어디에 얼마나 받았는지 기록한다 (집광 판정용)
+        const s = hit.p, ex = s.bx - s.ax, ey = s.by - s.ay;
+        const u = ((qx - s.ax) * ex + (qy - s.ay) * ey) / (ex * ex + ey * ey);
+        if (!sensorHits.has(s.obj)) sensorHits.set(s.obj, []);
+        sensorHits.get(s.obj).push({ lambda: lam, I, u, dx, dy });
+        end = { type: 'absorb', x: qx, y: qy };
         return [{ lambda: lam, I, pts, tags, end, bi: branch }];
       }
       if (role === 'filter') {
@@ -809,6 +862,49 @@ const GAME = (() => {
     return { checks: out, ok: out.every(x => x.ok), total };
   }
   const pct = v => `${Math.round(v * 100)}%`;
+
+  /* 종이의 집광 판정: 종이 위 spot(mm) 폭 안에 모인 빛이 전체 방출광의 need 비율 이상이면 탄다.
+     종이 색(reflect 대역)과 같은 빛은 반사되어 가열에 보태지 않는다. */
+  function paperHeat(paper, hits, emitted) {
+    const p = Object.assign({}, OPT.PARTS.paper.defaults, paper.params || {});
+    const rb = p.reflect;
+    const useful = hits.filter(h => !rb || h.lambda < rb[0] || h.lambda > rb[1]).sort((a, b) => a.u - b.u);
+    const win = p.spot / p.w;
+    let best = 0, sum = 0, j = 0;
+    for (let i = 0; i < useful.length; i++) {
+      sum += useful[i].I;
+      while (useful[i].u - useful[j].u > win) { sum -= useful[j].I; j++; }
+      best = Math.max(best, sum);
+    }
+    const v = emitted.length ? best / emitted.length : 0;
+    const ok = v >= p.need - 1e-9;
+    const check = { label: '집광 세기', frac: v, need: p.need, text: pct(v), needText: `기준 ${pct(p.need)}`, ok, kind: 'burn', value: v };
+    return { checks: [check], ok, reflected: rb ? hits.length - useful.length : 0 };
+  }
+
+  /* 로드셀 판정. hit: MECH 시뮬레이션이 기록한 첫 접촉 { t, speed, by } 또는 null
+     checks: touch(닿기만 하면 됨) · impact(충돌 속도 min/max, mm/s) */
+  function evalCell(goal, hit) {
+    const out = [];
+    for (const c of goal.checks) {
+      let r;
+      if (c.kind === 'touch') {
+        r = { label: '로드셀 접촉', frac: hit ? 1 : 0, need: 1, text: hit ? `${hit.t.toFixed(2)} s` : '없음', needText: '접촉', ok: !!hit, value: hit ? hit.t : 0 };
+      } else if (c.kind === 'impact') {
+        const v = hit ? hit.speed : 0;
+        if (c.max != null) {
+          const ok = !!hit && v <= c.max;
+          r = { label: '충돌 속도', frac: hit ? Math.max(0, 1 - v / (2 * c.max)) : 0, need: 0.5, text: hit ? `${Math.round(v)} mm/s` : '—', needText: `기준 ≤ ${c.max} mm/s`, ok, value: v };
+        } else {
+          const ok = v >= c.min;
+          r = { label: '충돌 속도', frac: Math.min(1, v / (1.5 * c.min)), need: 1 / 1.5, text: hit ? `${Math.round(v)} mm/s` : '—', needText: `기준 ${c.min} mm/s`, ok, value: v };
+        }
+      }
+      r.kind = c.kind;
+      out.push(r);
+    }
+    return { checks: out, ok: out.every(x => x.ok) };
+  }
 
   const W45 = Math.SQRT1_2;
   const DEG = Math.PI / 180;
@@ -1518,9 +1614,282 @@ const GAME = (() => {
         { key: 'filter:g', type: 'filter', x: 160, y: 400, rot: 0 },
       ],
     },
+    // ===== 역학 (31–40): 빛으로 종이를 태워 구슬을 떨어뜨리고, 판자로 굴려 로드셀에 닿게 한다 =====
+    {
+      id: 31, title: '종이를 태워라', tools: '평면거울 · 볼록렌즈',
+      clearTitle: '빛을 한 점에 모아 종이를 태웠어요',
+      brief: '종이 위에 쇠구슬이 놓여 있어요. 레이저를 종이 위 <b>한 점에 모아</b> 종이를 태우면 구슬이 떨어져 아래 <b>로드셀</b>에 닿아요.',
+      fixed: [
+        { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 30, rays: 7 }, label: '레이저 650 nm' },
+        { type: 'wall', x: 538.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 662.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 600, y: 328.5, rot: 0, params: { w: 110 }, label: '종이' },
+        { type: 'ball', x: 600, y: 318, rot: 0, params: {} },
+        { type: 'loadcell', x: 600, y: 560, rot: 0, params: {}, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { mirror: 1, lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '넓은 빛줄기가 그냥 닿아서는 종이가 뜨거워지지 않아요. 볼록렌즈의 초점이 종이 위에 오게 하세요.',
+        '빛은 옆에서 오고 있어요. 거울로 아래로 꺾은 뒤, 렌즈를 종이에서 초점거리(100 mm)만큼 위에 두세요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 560, y: 200, rot: 315 },
+        { type: 'lensConvex', x: 560, y: 228, rot: 90 },
+      ],
+    },
+    {
+      id: 32, title: '판자로 굴리기', tools: '빔스플리터 · 평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '빛을 나눠 쓰고, 판자로 구슬을 굴렸어요',
+      brief: '백색광의 일부는 위쪽 센서에 보내고, 나머지로 종이를 태우세요. 떨어진 구슬은 <b>판자</b>로 굴려 오른쪽 아래 로드셀에 닿게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
+        { type: 'sensor', x: 300, y: 40, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
+        { type: 'wall', x: 538.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 662.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 600, y: 288.5, rot: 0, params: { w: 110, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 600, y: 278, rot: 0, params: {} },
+        { type: 'loadcell', x: 820, y: 580, rot: 0, params: {}, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { splitter: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '스플리터로 나눈 뒤 통과한 절반만으로도 이 종이는 탈 만큼 얇아요. 단, 초점이 정확해야 해요.',
+        '판자는 노란 손잡이로 기울기를 바꿀 수 있어요. 구슬이 떨어지는 자리 아래에 오른쪽이 낮아지게 두세요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 300, y: 150, rot: 45 },
+        { type: 'mirror', x: 580, y: 150, rot: 315 },
+        { type: 'lensConvex', x: 580, y: 190, rot: 90 },
+        { type: 'plank', x: 660, y: 420, rot: 20 },
+      ],
+    },
+    {
+      id: 33, title: '진자를 쳐라', tools: '빔스플리터 · 평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '구슬의 운동량을 진자에 넘겼어요',
+      brief: '로드셀은 벽에 세로로 붙어 있어 구슬이 직접 닿을 수 없어요. 구슬로 <b>진자</b>를 쳐서, 흔들린 추가 로드셀에 닿게 하세요. 빛의 절반은 위 센서로.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'sensor', x: 300, y: 40, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
+        { type: 'wall', x: 523.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 637.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 580, y: 258.5, rot: 0, params: { w: 100, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 580, y: 248, rot: 0, params: {} },
+        { type: 'pendulum', x: 760, y: 260, rot: 0, params: { L: 190, r: 12, m: 1 }, label: '진자' },
+        { type: 'loadcell', x: 845, y: 435, rot: 90, params: { w: 80 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { splitter: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '같은 질량의 구슬이 정지한 추를 정면으로 치면 구슬은 멈추고 추가 그 속도로 움직여요(운동량 보존).',
+        '판자로 구슬을 추의 높이까지 굴려 보내세요. 추의 옆면을 수평에 가깝게 쳐야 추가 크게 흔들려요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 300, y: 120, rot: 45 },
+        { type: 'mirror', x: 560, y: 120, rot: 315 },
+        { type: 'lensConvex', x: 560, y: 160, rot: 90 },
+        { type: 'plank', x: 620, y: 390, rot: 12 },
+      ],
+    },
+    {
+      id: 34, title: '프리즘 위를 지나서', tools: '직각 프리즘 · 평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '빛을 꺾는 프리즘이 구슬도 꺾었어요',
+      brief: '빨간 레이저는 아래 센서로, 초록 레이저로는 종이를 태우세요. 구슬은 오른쪽 받침대 위 로드셀에 올라가야 해요. <b>빛을 꺾는 부품은 구슬도 튕겨 내요.</b>',
+      fixed: [
+        { type: 'source', x: 70, y: 400, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 20, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'sensor', x: 600, y: 600, rot: 90, params: { len: 80 }, label: '빨강 센서', goal: { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.7 }] } },
+        { type: 'wall', x: 573.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 687.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 630, y: 288.5, rot: 0, params: { w: 100, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 620, y: 278, rot: 0, params: {} },
+        { type: 'loadcell', x: 945, y: 540, rot: 0, params: { w: 60 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 945, y: 600, rot: 0, params: { w: 60, h: 100 }, label: '받침대' },
+      ],
+      inventory: { prismRight: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '직각 프리즘으로 빨간빛을 아래로 꺾어 센서에 보내세요. 그 프리즘이 구슬이 떨어지는 길목에 있다면, 구슬은 빗변을 타고 오른쪽으로 튕겨요.',
+        '튕겨 나간 구슬이 받침대 높이까지 올라가도록 판자를 완만한 오르막으로 두세요.',
+      ],
+      solution: [
+        { type: 'prismRight', x: 600, y: 400, rot: 0 },
+        { type: 'mirror', x: 650, y: 150, rot: 315 },
+        { type: 'lensConvex', x: 650, y: 190, rot: 90 },
+        { type: 'plank', x: 830, y: 545, rot: -8 },
+      ],
+    },
+    {
+      id: 35, title: '빨간 종이는 빨강을 반사해요', tools: '평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '종이 색에 맞는 빛을 골라 태웠어요',
+      brief: '빨간 레이저는 오른쪽 센서로 보내세요. 종이는 <b>빨간색</b>이라 빨간빛을 반사해 데워지지 않아요. 구슬은 왼쪽 아래 로드셀로.',
+      fixed: [
+        { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'source', x: 70, y: 450, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'sensor', x: 950, y: 200, rot: 0, params: { len: 80 }, label: '빨강 센서', goal: { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.7 }] } },
+        { type: 'wall', x: 533.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 707.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 620, y: 328.5, rot: 0, params: { w: 160, need: 0.4, reflect: [625, 700] }, label: '빨간 종이' },
+        { type: 'ball', x: 600, y: 318, rot: 0, params: {} },
+        { type: 'loadcell', x: 450, y: 580, rot: 0, params: { w: 70 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { mirror: { h: 25 }, lensConvex: { f: 100, h: 40 } },
+      partNames: { mirror: '소형 거울' },
+      hints: [
+        '빨간 레이저는 그대로 두면 이미 센서에 닿아요. 종이를 태울 빛은 아래쪽 초록 레이저예요.',
+        '초록빛을 거울로 위로 꺾어 렌즈로 종이 아랫면에 모으세요. 종이는 아래에서 데워도 타요. 구슬이 떨어지는 길에 렌즈가 있으면 안 돼요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 660, y: 450, rot: 45 },
+        { type: 'lensConvex', x: 665, y: 415, rot: 90 },
+        { type: 'plank', x: 560, y: 505, rot: -12 },
+      ],
+    },
+    {
+      id: 36, title: '무거운 추에 튕겨서', tools: '빔스플리터 · 평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '무거운 추에 부딪힌 구슬이 되돌아왔어요',
+      brief: '로드셀은 구슬이 떨어지는 자리의 <b>왼쪽</b> 바닥에 있어요. 오른쪽의 무거운 진자를 이용하세요. 빛의 절반은 위 센서로.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'sensor', x: 300, y: 40, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
+        { type: 'wall', x: 523.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 637.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 580, y: 258.5, rot: 0, params: { w: 100, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 580, y: 248, rot: 0, params: {} },
+        { type: 'pendulum', x: 760, y: 260, rot: 0, params: { L: 190, r: 16, m: 4 }, label: '무거운 진자' },
+        { type: 'wall', x: 580, y: 590, rot: 0, params: { w: 120, h: 12 } },
+        { type: 'loadcell', x: 450, y: 590, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 700, y: 590, rot: 0, params: { w: 160, h: 12 } },
+      ],
+      inventory: { splitter: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '가벼운 구슬이 무거운 추를 치면 추는 조금만 움직이고 구슬은 거의 그대로 되튕겨요(탄성 충돌).',
+        '판자로 구슬을 추에 정면으로 보내면, 되튕긴 구슬이 바닥에 떨어져 왼쪽으로 굴러가요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 300, y: 120, rot: 45 },
+        { type: 'mirror', x: 560, y: 120, rot: 315 },
+        { type: 'lensConvex', x: 560, y: 160, rot: 90 },
+        { type: 'plank', x: 620, y: 390, rot: 12 },
+      ],
+    },
+    {
+      id: 37, title: '구슬이 구슬을', tools: '평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '멈춰 있던 구슬에 운동량을 넘겼어요',
+      brief: '바닥에 두 번째 구슬이 놓여 있어요. 떨어진 구슬로 그 구슬을 쳐서 오른쪽 구덩이의 로드셀에 떨어지게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 30, rays: 7 }, label: '레이저 650 nm' },
+        { type: 'wall', x: 538.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 662.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 600, y: 328.5, rot: 0, params: { w: 110 }, label: '종이' },
+        { type: 'ball', x: 600, y: 318, rot: 0, params: {} },
+        { type: 'wall', x: 730, y: 560, rot: 0, params: { w: 340, h: 12 } },
+        { type: 'ball', x: 820, y: 545, rot: 0, params: {}, label: '구슬 B' },
+        { type: 'loadcell', x: 950, y: 600, rot: 0, params: { w: 70 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '같은 질량의 구슬끼리 정면 충돌하면 움직이던 구슬은 멈추고, 멈춰 있던 구슬이 그 속도로 굴러가요.',
+        '떨어진 구슬이 바닥을 따라 굴러가 두 번째 구슬을 치도록 판자를 두세요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 600, y: 200, rot: 315 },
+        { type: 'lensConvex', x: 600, y: 228, rot: 90 },
+        { type: 'plank', x: 650, y: 470, rot: 18 },
+      ],
+    },
+    {
+      id: 38, title: '살살 내려놓기', tools: '빔스플리터 · 색 필터 · 평면거울 · 볼록렌즈 · 긴 판자',
+      clearTitle: '구슬을 천천히 굴려 약한 로드셀에 닿게 했어요',
+      brief: '이 로드셀은 약해서 <b>700 mm/s</b>보다 빠르게 부딪히면 고장 나요. 구슬을 천천히 도착시키세요. 위 센서는 <b>파란빛(450–495 nm)</b>만 받아야 해요.',
+      fixed: [
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
+        { type: 'sensor', x: 300, y: 40, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'band', name: '파랑', band: [450, 495], min: 0.35 }, { kind: 'purity', name: '파랑', band: [450, 495], min: 0.9 }] } },
+        { type: 'wall', x: 538.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 662.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 600, y: 288.5, rot: 0, params: { w: 110, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 600, y: 278, rot: 0, params: {} },
+        { type: 'loadcell', x: 870, y: 500, rot: 0, params: { w: 80 }, label: '약한 로드셀', goal: { checks: [{ kind: 'touch' }, { kind: 'impact', max: 700 }] } },
+      ],
+      inventory: { splitter: 1, filter: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { filter: { min: 450, max: 495 }, lensConvex: { f: 100, h: 40 }, plank: { len: 260 } },
+      partNames: { plank: '긴 판자' },
+      hints: [
+        '떨어지는 높이가 속도를 정해요. 구슬이 로드셀 바로 위에서 떨어지지 말고, 로드셀 높이에서 옆으로 굴러 들어가게 하세요.',
+        '긴 판자를 완만하게(15° 아래) 기울여 끝이 로드셀 바로 옆에 오도록 두세요. 경사가 급하면 너무 빨라져요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 300, y: 150, rot: 45 },
+        { type: 'filter', x: 300, y: 95, rot: 90 },
+        { type: 'mirror', x: 580, y: 150, rot: 315 },
+        { type: 'lensConvex', x: 580, y: 190, rot: 90 },
+        { type: 'plank', x: 700, y: 470, rot: 14 },
+      ],
+    },
+    {
+      id: 39, title: '기둥 돌아가기', tools: '빔스플리터 · 볼록렌즈 · 판자 2개',
+      clearTitle: '판자 두 장으로 구슬 길을 만들었어요',
+      brief: '구슬 바로 아래에 기둥이 서 있고 로드셀은 그 왼쪽 바닥에 있어요. 판자 두 장으로 길을 만들어 로드셀까지 보내세요. 빛의 절반은 오른쪽 센서로.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'sensor', x: 950, y: 120, rot: 0, params: { len: 80 }, label: '오른쪽 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
+        { type: 'wall', x: 538.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 662.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 600, y: 258.5, rot: 0, params: { w: 110, need: 0.4 }, label: '종이' },
+        { type: 'ball', x: 600, y: 248, rot: 0, params: {} },
+        { type: 'wall', x: 600, y: 480, rot: 0, params: { w: 16, h: 140 }, label: '기둥' },
+        { type: 'loadcell', x: 520, y: 600, rot: 0, params: { w: 70 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 720, y: 600, rot: 0, params: { w: 220, h: 12 } },
+        { type: 'wall', x: 840, y: 520, rot: 0, params: { w: 16, h: 160 }, label: '오른쪽 벽' },
+      ],
+      inventory: { splitter: 1, lensConvex: 1, plank: 2 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '스플리터를 반대로 세우면 반사된 빛이 아래로 가요. 거울 없이 스플리터만으로 종이를 겨누세요.',
+        '첫 판자로 구슬을 오른쪽으로 보내 벽에 맞혀 되돌리고, 둘째 판자로 기둥 아래를 지나 왼쪽으로 굴리세요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 600, y: 120, rot: 315 },
+        { type: 'lensConvex', x: 600, y: 160, rot: 90 },
+        { type: 'plank', x: 660, y: 390, rot: 14 },
+        { type: 'plank', x: 760, y: 530, rot: -14 },
+      ],
+    },
+    {
+      id: 40, title: '물리 실험실 종합', tools: '빔스플리터 · 색 필터 · 직각 프리즘 · 평면거울 · 볼록렌즈 · 판자',
+      clearTitle: '빛을 나누고 되돌리고 모아 태우고, 구슬로 추를 쳤어요',
+      brief: '백색광에서 <b>초록빛</b>만 위 센서로 보내고, 나머지 빛은 거울 없이 되돌려 <b>초록 종이</b>를 태우세요. 떨어진 구슬로 진자를 쳐서 추가 로드셀에 닿게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
+        { type: 'sensor', x: 300, y: 40, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'band', name: '초록', band: [500, 565], min: 0.35 }, { kind: 'purity', name: '초록', band: [500, 565], min: 0.9 }] } },
+        { type: 'wall', x: 488.0, y: 335.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 612.0, y: 335.0, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 550, y: 318.5, rot: 0, params: { w: 110, need: 0.3, reflect: [500, 565] }, label: '초록 종이' },
+        { type: 'ball', x: 550, y: 308, rot: 0, params: {} },
+        { type: 'pendulum', x: 360, y: 330, rot: 0, params: { L: 230, r: 12, m: 1 }, label: '진자' },
+        { type: 'loadcell', x: 275, y: 545, rot: 90, params: { w: 80 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+      ],
+      inventory: { splitter: 1, filter: 1, prismRight: 1, mirror: 1, lensConvex: 1, plank: 1 },
+      partParams: { filter: { min: 500, max: 565 }, lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '초록 종이는 초록빛을 반사하니 필터를 스플리터 앞에 두면 종이를 태울 빛이 남지 않아요. 필터는 위 갈래에만.',
+        '통과한 빛은 직각 프리즘의 빗변으로 받아 두 번 전반사시켜 되돌리고, 돌아온 빛을 거울로 아래로 꺾어 렌즈로 종이에 모으세요. 구슬은 판자로 왼쪽 진자에.',
+      ],
+      solution: [
+        { type: 'splitter', x: 300, y: 150, rot: 45 },
+        { type: 'filter', x: 300, y: 95, rot: 90 },
+        { type: 'prismRight', x: 820, y: 185, rot: 225 },
+        { type: 'mirror', x: 550, y: 220, rot: 225 },
+        { type: 'lensConvex', x: 550, y: 245, rot: 90 },
+        { type: 'plank', x: 520, y: 450, rot: -12 },
+      ],
+    },
   ];
 
-  return { STAGES, evalGoal, pinhole, behind };
+  return { STAGES, evalGoal, paperHeat, evalCell, pinhole, behind };
 })();
 
 
@@ -1528,7 +1897,171 @@ const GAME = (() => {
 </script>
 <script>
 
-/* ===== 광로 실험실: 화면·조작 ===== */
+/* ===== 역학: 구슬·진자·판자 =====
+   광학은 정적(순간)이고, 역학은 배치가 정해진 뒤 T_MAX초 동안 결정론적으로 풀린다.
+   구슬은 모든 부품(판자·벽·렌즈·프리즘·거울·센서…)을 단단한 장애물로 본다. 타버린 종이는 사라진다. */
+const MECH = (() => {
+  const { W, H, PARTS } = OPT;
+  const G = 4000;          // mm/s² — 작은 실험대 모형(화면에서 읽기 좋은 속도)
+  const DT = 1 / 240;
+  const T_MAX = 8;
+  const REST_V = 80;       // 이보다 느린 법선 충돌은 튀지 않고 접촉을 유지한다
+  const DEG = Math.PI / 180;
+
+  const paramsOf = o => Object.assign({}, PARTS[o.type].defaults, o.params || {});
+  const BOUNCE = { plank: 0.3, loadcell: 0.12, wall: 0.35, lensConvex: 0.55, lensConcave: 0.55, prism: 0.55, prismRight: 0.55, mirror: 0.4 };
+
+  // 충돌 도형: 월드 좌표의 볼록 다각형. 프리즘은 삼각형, 나머지는 각 부품의 상자
+  function shapesOf(objs) {
+    const out = [];
+    for (const o of objs) {
+      if (o.hidden || o.type === 'ball' || o.type === 'pendulum') continue;
+      if (o.type === 'paper' && o.burnt) continue;
+      const p = paramsOf(o);
+      const th = o.rot * DEG, c = Math.cos(th), s = Math.sin(th);
+      const tx = ([x, y]) => [o.x + x * c - y * s, o.y + x * s + y * c];
+      let local;
+      if (o.type === 'prism') { const a = p.side / Math.sqrt(3); local = [[0, -a], [p.side / 2, a / 2], [-p.side / 2, a / 2]]; }
+      else if (o.type === 'prismRight') { const h = p.side / 2; local = [[-h, -h], [h, h], [-h, h]]; }
+      else { const b = PARTS[o.type].build(p).box; local = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]]; }
+      out.push({ obj: o, pts: local.map(tx), e: BOUNCE[o.type] != null ? BOUNCE[o.type] : 0.35 });
+    }
+    return out;
+  }
+
+  // 원과 볼록 다각형의 겁침: { d: 파고든 깊이, nx, ny: 다각형 밖으로 밀어낼 방향 } 또는 null
+  function circlePoly(cx, cy, r, pts) {
+    const n = pts.length;
+    let inside = true, sign = 0, bestD2 = Infinity, bx = 0, by = 0, bnx = 0, bny = -1;
+    for (let i = 0; i < n; i++) {
+      const [ax, ay] = pts[i], [qx, qy] = pts[(i + 1) % n];
+      const ex = qx - ax, ey = qy - ay, len2 = ex * ex + ey * ey;
+      const cr = ex * (cy - ay) - ey * (cx - ax);
+      if (cr !== 0) { if (sign === 0) sign = Math.sign(cr); else if (Math.sign(cr) !== sign) inside = false; }
+      const t = Math.max(0, Math.min(1, ((cx - ax) * ex + (cy - ay) * ey) / len2));
+      const px = ax + ex * t, py = ay + ey * t, d2 = (cx - px) ** 2 + (cy - py) ** 2;
+      if (d2 < bestD2) { bestD2 = d2; bx = px; by = py; const l = Math.sqrt(len2); bnx = ey / l; bny = -ex / l; }
+    }
+    const dist = Math.sqrt(bestD2);
+    if (inside) {
+      // 중심이 안에 있다: 가장 가까운 변 밖으로 밀어낸다
+      if (dist < 1e-9) { const o = sign > 0 ? -1 : 1; return { d: r, nx: bnx * o, ny: bny * o }; }
+      return { d: r + dist, nx: (bx - cx) / dist, ny: (by - cy) / dist };
+    }
+    if (dist >= r) return null;
+    return { d: r - dist, nx: (cx - bx) / dist, ny: (cy - by) / dist };
+  }
+
+  function simulate(objs) {
+    const shapes = shapesOf(objs);
+    const balls = objs.filter(o => o.type === 'ball' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, x: o.x, y: o.y, vx: 0, vy: 0, r: p.r, m: p.m, lost: false }; });
+    const pends = objs.filter(o => o.type === 'pendulum' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, px: o.x, py: o.y, L: p.L, r: p.r, m: p.m, a: p.a0 * DEG, w: 0 }; });
+    const cells = objs.filter(o => o.type === 'loadcell' && !o.hidden).map(o => ({ obj: o, hit: null }));
+    const bobPos = q => [q.px + q.L * Math.sin(q.a), q.py + q.L * Math.cos(q.a)];
+    const touch = (sh, t, speed, by) => {
+      if (sh.obj.type !== 'loadcell') return;
+      const cell = cells.find(k => k.obj === sh.obj);
+      if (cell && !cell.hit) cell.hit = { t, speed, by };
+    };
+    const frames = [];
+    const record = t => frames.push({ t, b: balls.map(b => [b.x, b.y, b.lost ? 1 : 0]), p: pends.map(q => q.a) });
+    record(0);
+    const steps = Math.round(T_MAX / DT);
+    for (let i = 1; i <= steps; i++) {
+      const t = i * DT;
+      // 진자: θ'' = -(g/L)·sinθ, 약한 공기 저항
+      for (const q of pends) { q.w += -(G / q.L) * Math.sin(q.a) * DT; q.w *= 1 - 0.03 * DT; q.a += q.w * DT; }
+      for (const b of balls) {
+        if (b.lost) continue;
+        b.vy += G * DT;
+        b.x += b.vx * DT; b.y += b.vy * DT;
+        for (const sh of shapes) {
+          const c = circlePoly(b.x, b.y, b.r, sh.pts);
+          if (!c) continue;
+          const speed = Math.hypot(b.vx, b.vy);
+          b.x += c.nx * c.d; b.y += c.ny * c.d;
+          const vn = b.vx * c.nx + b.vy * c.ny;
+          if (vn < 0) {
+            const e = -vn < REST_V ? 0 : sh.e;
+            b.vx -= (1 + e) * vn * c.nx; b.vy -= (1 + e) * vn * c.ny;
+            if (e === 0) {
+              // 굴러간다: 속이 찬 구는 접선 가속도가 5/7배, 작은 굴림 저항
+              const tx = -c.ny, ty = c.nx, gt = G * ty;
+              let vt = b.vx * tx + b.vy * ty;
+              vt -= (2 / 7) * gt * DT;
+              const rr = 0.012 * G * DT;
+              vt = Math.abs(vt) <= rr ? 0 : vt - Math.sign(vt) * rr;
+              b.vx = vt * tx; b.vy = vt * ty;
+            }
+          }
+          touch(sh, t, speed, 'ball');
+        }
+        // 진자 추와의 충돌: 추는 줄에 매여 접선 방향으로만 움직인다.
+        // 법선 방향 1차원 충돌로 풀되, 추의 유효 질량은 m/(t·n)² (축이 나머지 충격을 받는다)
+        for (const q of pends) {
+          const [qx, qy] = bobPos(q);
+          const dx = b.x - qx, dy = b.y - qy, dist = Math.hypot(dx, dy), minD = b.r + q.r;
+          if (dist >= minD || dist < 1e-9) continue;
+          const nx = dx / dist, ny = dy / dist;
+          b.x += nx * (minD - dist); b.y += ny * (minD - dist);
+          const tx = Math.cos(q.a), ty = -Math.sin(q.a);
+          const vbx = q.w * q.L * tx, vby = q.w * q.L * ty;
+          const v1n = b.vx * nx + b.vy * ny, v2n = vbx * nx + vby * ny;
+          if (v1n - v2n >= 0) continue;
+          let tn = tx * nx + ty * ny;
+          if (Math.abs(tn) < 0.2) tn = tn < 0 ? -0.2 : 0.2;
+          const m1 = b.m, m2 = q.m / (tn * tn), e = 0.92;
+          const v1nP = (m1 * v1n + m2 * v2n - m2 * e * (v1n - v2n)) / (m1 + m2);
+          const v2nP = (m1 * v1n + m2 * v2n + m1 * e * (v1n - v2n)) / (m1 + m2);
+          b.vx += (v1nP - v1n) * nx; b.vy += (v1nP - v1n) * ny;
+          q.w += (v2nP - v2n) / tn / q.L;
+        }
+        if (b.y > H + 60 || b.x < -60 || b.x > W + 60) b.lost = true;
+      }
+      // 구슬끼리의 충돌 (탄성, 운동량 보존)
+      for (let a = 0; a < balls.length; a++) for (let c2 = a + 1; c2 < balls.length; c2++) {
+        const A = balls[a], B = balls[c2];
+        if (A.lost || B.lost) continue;
+        const dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy), minD = A.r + B.r;
+        if (dist >= minD || dist < 1e-9) continue;
+        const nx = dx / dist, ny = dy / dist, push = (minD - dist) / 2;
+        A.x -= nx * push; A.y -= ny * push; B.x += nx * push; B.y += ny * push;
+        const v1 = A.vx * nx + A.vy * ny, v2 = B.vx * nx + B.vy * ny;
+        if (v1 - v2 <= 0) continue;
+        const e = 0.9, m1 = A.m, m2 = B.m;
+        const v1P = (m1 * v1 + m2 * v2 - m2 * e * (v1 - v2)) / (m1 + m2);
+        const v2P = (m1 * v1 + m2 * v2 + m1 * e * (v1 - v2)) / (m1 + m2);
+        A.vx += (v1P - v1) * nx; A.vy += (v1P - v1) * ny; B.vx += (v2P - v2) * nx; B.vy += (v2P - v2) * ny;
+      }
+      // 추가 로드셀을 치는 경우
+      for (const q of pends) {
+        const [qx, qy] = bobPos(q);
+        for (const sh of shapes) if (sh.obj.type === 'loadcell' && circlePoly(qx, qy, q.r, sh.pts)) touch(sh, t, Math.abs(q.w * q.L), 'bob');
+      }
+      if (i % 4 === 0) record(t);
+    }
+    return { frames, cells, balls, pends, tEnd: T_MAX };
+  }
+
+  // 재생용: 시각 t의 보간된 프레임
+  function frameAt(sim, t) {
+    const F = sim.frames;
+    if (t <= 0) return F[0];
+    if (t >= sim.tEnd) return F[F.length - 1];
+    const k = t / (F[1].t - F[0].t), i = Math.min(F.length - 2, Math.floor(k)), f = k - i;
+    const A = F[i], B = F[i + 1];
+    return { t, b: A.b.map((v, j) => [v[0] + (B.b[j][0] - v[0]) * f, v[1] + (B.b[j][1] - v[1]) * f, v[2] || B.b[j][2]]), p: A.p.map((v, j) => v + (B.p[j] - v) * f) };
+  }
+
+  const hasBodies = objs => objs.some(o => (o.type === 'ball' || o.type === 'pendulum' || o.type === 'loadcell') && !o.hidden);
+
+  return { G, T_MAX, simulate, frameAt, hasBodies, circlePoly, shapesOf };
+})();
+
+</script>
+<script>
+
+/* ===== 물리 실험실: 화면·조작 ===== */
 (() => {
   const { W, H, PARTS, wlRGB } = OPT;
   const $ = s => document.querySelector(s);
@@ -1547,21 +2080,28 @@ const GAME = (() => {
   const STAGES = GAME.STAGES;
 
   const LAB_PARTS = ['prism', 'prismRight', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'splitter', 'filter', 'slit'];
-  const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0 };
+  const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0, plank: 0 };
+  const BODY_TYPES = new Set(['ball', 'pendulum']);          // 시뮬레이션 상태로 그리는 부품
+  const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell']);
 
   /* ---------- 상태 ---------- */
   let S = null;
   let uid = 1;
   let R = { paths: [], sensorHits: new Map(), emitted: [] };
   let evalRes = [];
+  let M = null;              // MECH.simulate 결과 (역학 부품이 있는 스테이지만)
+  let paperRes = [];         // 종이별 집광 판정 (타기 전 광선 기준)
+  let burnDelay = 0;         // 재생 시작 후 종이가 타는 데 걸리는 시간(s)
+  let replayT0 = 0;          // 재생 시작 시각 (performance.now)
+  const BURN_T = 0.7;
   let dirty = true;
   let drag = null;
   let winTimer = null;
 
   // 클리어 기록 (이 브라우저에만 저장)
   const cleared = new Set();
-  try { JSON.parse(localStorage.getItem('optics-lab-cleared') || '[]').forEach(n => cleared.add(n)); } catch (e) { /* 저장소 없음 */ }
-  const saveCleared = () => { try { localStorage.setItem('optics-lab-cleared', JSON.stringify([...cleared])); } catch (e) { /* 무시 */ } };
+  try { JSON.parse(localStorage.getItem('physics-lab-cleared') || localStorage.getItem('optics-lab-cleared') || '[]').forEach(n => cleared.add(n)); } catch (e) { /* 저장소 없음 */ }
+  const saveCleared = () => { try { localStorage.setItem('physics-lab-cleared', JSON.stringify([...cleared])); } catch (e) { /* 무시 */ } };
 
   function freshState(mode, stage) {
     return {
@@ -1614,7 +2154,17 @@ const GAME = (() => {
 
   /* ---------- 추적·판정 ---------- */
   function retrace() {
-    R = OPT.trace(S.objs);
+    // 1) 종이가 온전한 상태로 추적해 집광을 판정하고, 2) 탄 종이는 사라진 상태로 다시 추적한다
+    const papers = S.objs.filter(o => o.type === 'paper' && !o.hidden);
+    papers.forEach(o => { o.burnt = false; });
+    const R0 = OPT.trace(S.objs);
+    paperRes = papers.map(o => ({ obj: o, hits: R0.sensorHits.get(o) || [], ...GAME.paperHeat(o, R0.sensorHits.get(o) || [], R0.emitted) }));
+    const burnt = paperRes.filter(r => r.ok);
+    burnt.forEach(r => { r.obj.burnt = true; });
+    R = burnt.length ? OPT.trace(S.objs) : R0;
+    burnDelay = burnt.length ? BURN_T : 0;
+    M = MECH.hasBodies(S.objs) ? MECH.simulate(S.objs) : null;
+    replayT0 = performance.now();
     evaluate();
     dirty = true;
     updateReadout();
@@ -1625,12 +2175,31 @@ const GAME = (() => {
   function evaluate() {
     evalRes = [];
     for (const o of S.objs) {
-      if (o.type !== 'sensor') continue;
-      const hits = R.sensorHits.get(o) || [];
-      const res = { obj: o, hits, total: hits.reduce((a, h) => a + h.I, 0) };
-      if (o.goal) { const g = GAME.evalGoal(o.goal, hits, R.emitted); res.checks = g.checks; res.ok = g.ok; }
-      evalRes.push(res);
+      if (o.type === 'sensor') {
+        const hits = R.sensorHits.get(o) || [];
+        const res = { obj: o, hits, total: hits.reduce((a, h) => a + h.I, 0) };
+        if (o.goal) { const g = GAME.evalGoal(o.goal, hits, R.emitted); res.checks = g.checks; res.ok = g.ok; }
+        evalRes.push(res);
+      } else if (o.type === 'paper' && !o.hidden) {
+        const pr = paperRes.find(r => r.obj === o);
+        evalRes.push({ obj: o, hits: pr.hits, checks: pr.checks, ok: pr.ok, reflected: pr.reflected });
+      } else if (o.type === 'loadcell' && o.goal && !o.hidden) {
+        const cell = M && M.cells.find(k => k.obj === o);
+        const g = GAME.evalCell(o.goal, cell ? cell.hit : null);
+        evalRes.push({ obj: o, hits: [], checks: g.checks, ok: g.ok, hit: cell ? cell.hit : null });
+      }
     }
+  }
+
+  // 재생 시간(s) → 시뮬레이션 시간
+  const replayTime = () => (performance.now() - replayT0) / 1000;
+  const simTime = () => Math.max(0, replayTime() - burnDelay);
+  const replayDone = () => !M || simTime() >= M.tEnd;
+  // 마지막 로드셀 접촉이 화면에 보이는 재생 시각(ms)
+  function lastEventMs() {
+    if (!M) return 0;
+    const ts = M.cells.filter(k => k.hit).map(k => k.hit.t);
+    return ts.length ? (Math.max(...ts) + burnDelay) * 1000 : 0;
   }
 
   function allGoalsMet() {
@@ -1648,7 +2217,7 @@ const GAME = (() => {
         cleared.add(STAGES[S.stage].id); saveCleared(); updateNav();
         showClear(); dirty = true;
       }
-    }, 450);
+    }, Math.max(450, lastEventMs() + 700));
   }
 
   /* ---------- 캔버스 ---------- */
@@ -1713,16 +2282,19 @@ const GAME = (() => {
     for (const o of S.objs) if (o.type === 'wall' && !o.hidden) drawWall(ctx, o, px);
     drawRays(ctx, px);
     for (const o of S.objs) {
-      if (o.hidden || o.type === 'wall') continue;
+      if (o.hidden || o.type === 'wall' || BODY_TYPES.has(o.type)) continue;
       drawObj(ctx, o, px);
-      if (o.locked && o.type !== 'source' && o.type !== 'sensor') drawPin(ctx, o, px);
+      if (o.locked && !NO_PIN.has(o.type)) drawPin(ctx, o, px);
     }
     for (const o of S.objs) if (o.label && !o.hidden) drawLabel(ctx, o, px);
+    drawBodies(ctx, px);
     const sel = selObj();
     if (sel && !sel.hidden) drawSelection(ctx, sel, px);
   }
 
   function loop() {
+    if (M && !replayDone()) dirty = true;
+    else if (burnDelay && replayTime() < burnDelay + 0.3) dirty = true;
     if (dirty) { dirty = false; render(); }
     requestAnimationFrame(loop);
   }
@@ -1979,8 +2551,126 @@ const GAME = (() => {
         }
         case 'source': drawSource(c, o, p, px); break;
         case 'sensor': drawSensor(c, o, p, px); break;
+        case 'plank': drawPlank(c, p, px); break;
+        case 'paper': drawPaper(c, o, p, px); break;
+        case 'loadcell': drawLoadcell(c, o, p, px); break;
       }
     });
+  }
+
+  /* ---------- 역학 부품 그리기 ---------- */
+  function drawPlank(c, p, px) {
+    const hl = p.len / 2, ht = p.th / 2;
+    roundRect(c, -hl, -ht, p.len, p.th, 2);
+    const g = c.createLinearGradient(0, -ht, 0, ht);
+    g.addColorStop(0, '#a9793f'); g.addColorStop(0.5, '#8a6132'); g.addColorStop(1, '#6b4a25');
+    c.fillStyle = g; c.fill();
+    c.save(); roundRect(c, -hl, -ht, p.len, p.th, 2); c.clip();
+    c.strokeStyle = 'rgba(60,35,10,0.45)'; c.lineWidth = px;
+    c.beginPath();
+    for (let i = -3; i <= 3; i++) { const y = i * ht / 3.2; c.moveTo(-hl, y); c.bezierCurveTo(-hl / 3, y + 1.5, hl / 3, y - 1.5, hl, y); }
+    c.stroke(); c.restore();
+    roundRect(c, -hl, -ht, p.len, p.th, 2); c.strokeStyle = '#3d2a14'; c.lineWidth = px; c.stroke();
+    // 끝의 고정 나사
+    c.fillStyle = '#3a3f47';
+    for (const x of [-hl + 7, hl - 7]) { c.beginPath(); c.arc(x, 0, 2.2, 0, Math.PI * 2); c.fill(); }
+  }
+
+  function drawPaper(c, o, p, px) {
+    const hw = p.w / 2, ht = p.th / 2;
+    const rb = p.reflect;
+    const tint = rb ? colOf((rb[0] + rb[1]) / 2) : null;
+    const paperFill = tint ? `rgba(${Math.round(120 + tint[0] * 0.5)},${Math.round(120 + tint[1] * 0.5)},${Math.round(120 + tint[2] * 0.5)},0.95)` : '#d9d2c0';
+    if (!o.burnt) {
+      c.beginPath(); c.rect(-hw, -ht, p.w, p.th); c.fillStyle = paperFill; c.fill();
+      c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = px; c.stroke();
+      // 뜨거워지는 자리: 집광 세기에 따라 갈색으로
+      const res = evalRes.find(r => r.obj === o);
+      if (res && res.hits.length) {
+        const v = res.checks[0].frac / p.need;
+        const us = res.hits.map(h => h.u), um = us.reduce((a, b) => a + b, 0) / us.length;
+        const x = -hw + um * p.w, rad = 6 + 10 * Math.min(1, v);
+        const g = c.createRadialGradient(x, 0, 0, x, 0, rad);
+        g.addColorStop(0, `rgba(90,50,20,${0.15 + 0.6 * Math.min(1, v)})`); g.addColorStop(1, 'rgba(90,50,20,0)');
+        c.fillStyle = g; c.fillRect(x - rad, -ht, 2 * rad, p.th);
+      }
+      return;
+    }
+    // 타버린 종이: 양 끝의 그을은 조각만 남고, 처음 잠깐은 불씨가 보인다
+    const k = Math.min(1, replayTime() / BURN_T);
+    const gone = hw * (0.25 + 0.6 * k);
+    for (const sgn of [-1, 1]) {
+      c.beginPath();
+      c.moveTo(sgn * hw, -ht); c.lineTo(sgn * gone, -ht - 1.5 * k); c.lineTo(sgn * (gone + 4), ht + 1); c.lineTo(sgn * hw, ht); c.closePath();
+      c.fillStyle = paperFill; c.fill();
+      c.strokeStyle = `rgba(20,10,5,${0.5 + 0.4 * k})`; c.lineWidth = 1.4 * px; c.stroke();
+    }
+    if (k < 1) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, 18 + 14 * k);
+      g.addColorStop(0, `rgba(255,170,60,${0.7 * (1 - k)})`); g.addColorStop(1, 'rgba(255,120,30,0)');
+      c.fillStyle = g; c.fillRect(-40, -22, 80, 44);
+      c.restore();
+    }
+  }
+
+  function drawLoadcell(c, o, p, px) {
+    const hw = p.w / 2, hh = p.h / 2;
+    // 받침
+    roundRect(c, -hw - 6, hh - 2, p.w + 12, 8, 2); c.fillStyle = '#20262e'; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+    // 감지판
+    roundRect(c, -hw, -hh, p.w, p.h, 2);
+    const g = c.createLinearGradient(0, -hh, 0, hh);
+    g.addColorStop(0, '#4b5563'); g.addColorStop(1, '#2b323c');
+    c.fillStyle = g; c.fill(); c.strokeStyle = '#6b7684'; c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,0.08)';
+    c.beginPath(); for (let x = -hw + 8; x < hw; x += 8) { c.moveTo(x, -hh + 2); c.lineTo(x, hh - 2); } c.stroke();
+    // 접촉 LED
+    const res = evalRes.find(r => r.obj === o);
+    const lit = res && res.hit && simTime() >= res.hit.t;
+    const ok = lit && res.ok;
+    c.beginPath(); c.arc(hw + 1, hh + 2, 3, 0, Math.PI * 2);
+    c.fillStyle = !lit ? '#3a2622' : ok ? C.ok : C.bad; c.fill();
+    if (lit) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const col = ok ? '116,217,159' : '255,138,122';
+      const gr = c.createRadialGradient(hw + 1, hh + 2, 0, hw + 1, hh + 2, 14);
+      gr.addColorStop(0, `rgba(${col},0.6)`); gr.addColorStop(1, `rgba(${col},0)`);
+      c.fillStyle = gr; c.beginPath(); c.arc(hw + 1, hh + 2, 14, 0, Math.PI * 2); c.fill(); c.restore();
+    }
+  }
+
+  function drawBall(c, x, y, r, px) {
+    c.beginPath(); c.arc(x + 1.5, y + 2, r, 0, Math.PI * 2); c.fillStyle = 'rgba(0,0,0,0.35)'; c.fill();
+    const g = c.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+    g.addColorStop(0, '#f4f7fb'); g.addColorStop(0.45, '#aeb8c6'); g.addColorStop(1, '#3d4654');
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = g; c.fill();
+    c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = px; c.stroke();
+  }
+
+  function drawBodies(c, px) {
+    const bodies = S.objs.filter(o => BODY_TYPES.has(o.type) && !o.hidden);
+    if (!bodies.length) return;
+    const f = M ? MECH.frameAt(M, simTime()) : null;
+    for (const o of bodies) {
+      const p = partGeom(o).params;
+      if (o.type === 'pendulum') {
+        const i = M ? M.pends.findIndex(q => q.obj === o) : -1;
+        const a = f && i >= 0 ? f.p[i] : p.a0 * Math.PI / 180;
+        const bx = o.x + p.L * Math.sin(a), by = o.y + p.L * Math.cos(a);
+        // 축 브래킷
+        roundRect(c, o.x - 12, o.y - 8, 24, 12, 2); c.fillStyle = '#2b323c'; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+        c.beginPath(); c.arc(o.x, o.y, 2.5, 0, Math.PI * 2); c.fillStyle = '#9aa5b4'; c.fill();
+        // 줄
+        c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(bx, by); c.strokeStyle = 'rgba(220,225,235,0.75)'; c.lineWidth = 1.2 * px; c.stroke();
+        drawBall(c, bx, by, p.r, px);
+      } else {
+        const i = M ? M.balls.findIndex(b => b.obj === o) : -1;
+        const st = f && i >= 0 ? f.b[i] : [o.x, o.y, 0];
+        if (st[2]) continue;
+        drawBall(c, st[0], st[1], p.r, px);
+      }
+    }
   }
 
   // 정반에 볼트로 고정된 부품 표시
@@ -2109,11 +2799,14 @@ const GAME = (() => {
     const bb = worldBox(o), gap = 7 * px, th = o.rot * Math.PI / 180;
     const fx = o.type === 'sensor' ? -Math.cos(th) : Math.cos(th), fy = o.type === 'sensor' ? -Math.sin(th) : Math.sin(th);
     const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+    // 종이는 위에 구슬이 올려져 있으니 아래쪽부터, 로드셀은 위로 구슬이 오니 옆쪽부터 찾는다
+    const below = o.type === 'paper', aside = o.type === 'loadcell' || o.type === 'pendulum';
     const spots = [
-      { skip: fy < -0.6, x: cx - w / 2, y: bb[1] - h - gap },
-      { skip: fy > 0.6, x: cx - w / 2, y: bb[3] + gap },
+      { skip: fy < -0.6 || below || aside, x: cx - w / 2, y: bb[1] - h - gap },
+      { skip: fy > 0.6 || aside, x: cx - w / 2, y: bb[3] + gap },
       { skip: fx > 0.6, x: bb[2] + gap, y: cy - h / 2 },
       { skip: fx < -0.6, x: bb[0] - w - gap, y: cy - h / 2 },
+      { skip: false, x: cx - w / 2, y: bb[1] - h - gap },
     ];
     const fits = s => s.x >= 2 * px && s.y >= 2 * px && s.x + w <= W - 2 * px && s.y + h <= H - 2 * px;
     const spot = spots.find(s => !s.skip && fits(s)) || spots.find(s => !s.skip) || spots[0];
@@ -2351,13 +3044,15 @@ const GAME = (() => {
     if (t.startsWith('lens') || t === 'mirrorConcave' || t === 'mirrorConvex') return `f ${p.f < 0 ? '−' + Math.abs(p.f) : p.f}`;
     if (t === 'slit') return `폭 ${S.mode === 'lab' ? S.lab.gap : p.gap}`;
     if (t === 'mirror') return `${2 * p.h} mm`;
+    if (t === 'plank') return `${p.len} mm`;
     if (t === 'splitter') return `R ${Math.round(p.r * 100)}%`;
     if (t === 'filter') return `${p.excl ? '차단 ' : ''}${p.min}–${p.max} nm`;
     if (t === 'prismRight') return '45·45·90°';
     return '60°';
   }
 
-  const goalSensors = () => S.objs.filter(o => o.type === 'sensor' && (S.mode === 'lab' || o.goal));
+  // 판독 패널에 보여줄 장치: 목표가 있는 센서·로드셀, 그리고 모든 종이(집광 정도)
+  const goalDevices = () => S.objs.filter(o => !o.hidden && (o.type === 'sensor' ? (S.mode === 'lab' || o.goal) : o.type === 'paper' || (o.type === 'loadcell' && o.goal)));
 
   function buildPanel() {
     let html = '';
@@ -2396,16 +3091,16 @@ const GAME = (() => {
           </div>
         </section>`;
     }
-    const sensors = goalSensors();
+    const sensors = goalDevices();
     const multi = sensors.length > 1;
     html += `
       <section class="sec readout">
         <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount"></span></div>
         <div class="rds">
           ${sensors.map((o, i) => `
-            <div class="rd" data-i="${i}">
-              ${multi ? `<div class="rd-h"><span class="rd-name">${o.label}</span><span class="mono dim rd-n"></span></div>` : ''}
-              <canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>
+            <div class="rd" data-i="${i}" data-type="${o.type}">
+              ${multi ? `<div class="rd-h"><span class="rd-name">${o.label || PARTS[o.type].name}</span><span class="mono dim rd-n"></span></div>` : ''}
+              ${o.type === 'sensor' ? `<canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>` : ''}
               <div class="meters"></div>
             </div>`).join('')}
         </div>
@@ -2434,6 +3129,7 @@ const GAME = (() => {
         <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
         <p>프리즘 유리는 색 분리가 잘 보이도록 분산을 과장했어요. n = 1.67(400 nm) ~ 1.50(700 nm). 렌즈는 분산이 작은 유리(n ≈ 1.52)예요. 렌즈와 곡면 거울의 초점거리 f는 부품함에 적혀 있어요.</p>
         <p>회절은 다루지 않는 기하광학 모형입니다. 볼트 표시가 있는 부품은 정반에 고정되어 움직일 수 없어요.</p>
+        <p><b>역학</b> 종이는 받은 빛의 80% 이상이 14 mm 안에 모이면 타서 사라집니다(종이 색과 같은 빛은 반사되어 소용없어요). 쇠구슬은 중력 4 m/s²의 작은 실험대에서 굴러가며(속이 찬 구: 가속도 5/7배), 판자·벽·렌즈·프리즘 등 모든 부품에 부딪혀 튀어요. 진자와의 충돌은 운동량·에너지가 보존되는 탄성 충돌이고, 로드셀은 접촉과 충돌 속도를 재요. 배치를 바꾸면 8초짜리 실험이 처음부터 다시 재생됩니다.</p>
       </details>`;
     panel.innerHTML = html;
     bindPanel();
@@ -2600,7 +3296,7 @@ const GAME = (() => {
 
   /* 판독기 */
   function resizeSpec() {
-    const multi = goalSensors().length > 1;
+    const multi = goalDevices().length > 1;
     document.querySelectorAll('canvas.spec').forEach(cv2 => {
       const w = cv2.getBoundingClientRect().width || 280, h = multi ? 70 : 92;
       const d = Math.min(2.5, window.devicePixelRatio || 1);
@@ -2659,16 +3355,18 @@ const GAME = (() => {
 
   function updateReadout() {
     if (!S) return;
-    const sensors = goalSensors();
+    const sensors = goalDevices();
     const blocks = document.querySelectorAll('.rd');
     let totalHits = 0;
     blocks.forEach(bl => {
       const o = sensors[+bl.dataset.i];
       const res = evalRes.find(r => r.obj === o);
       if (!res) return;
-      totalHits += res.hits.length;
-      drawSpectrum(bl.querySelector('canvas.spec'), res);
-      const n = bl.querySelector('.rd-n'); if (n) n.textContent = res.hits.length ? `${res.hits.length}줄` : '빛 없음';
+      if (o.type === 'sensor') totalHits += res.hits.length;
+      const spec = bl.querySelector('canvas.spec');
+      if (spec) drawSpectrum(spec, res);
+      const n = bl.querySelector('.rd-n');
+      if (n) n.textContent = o.type === 'loadcell' ? (res.hit ? (res.hit.by === 'bob' ? '추가 닿음' : '구슬이 닿음') : '대기 중') : o.type === 'paper' ? (res.ok ? '타버렸어요' : res.hits.length ? `${res.hits.length}줄 받음` : '빛 없음') : res.hits.length ? `${res.hits.length}줄` : '빛 없음';
       const m = bl.querySelector('.meters');
       if (res.checks) {
         m.innerHTML = res.checks.map(k => `
@@ -2686,6 +3384,18 @@ const GAME = (() => {
   }
 
   function verdict(r) {
+    if (r.obj.type === 'paper') {
+      if (r.ok) return S.revealed ? '정답 배치에서 종이가 타요.' : '종이가 타서 구슬이 떨어져요.';
+      if (!r.hits.length) return '종이에 닿은 빛이 없어요.';
+      if (r.reflected && r.reflected >= r.hits.length) return '종이 색과 같은 빛은 반사되어 달구지 않아요.';
+      return '빛을 더 좍은 한 점에 모아야 타요.';
+    }
+    if (r.obj.type === 'loadcell') {
+      if (r.ok) return S.revealed ? '정답 배치에서 조건이 충족돼요.' : '조건 충족';
+      if (!r.hit) return '아직 아무것도 로드셀에 닿지 않았어요.';
+      const bad = r.checks.find(k => !k.ok);
+      return bad && bad.needText.includes('≤') ? '너무 세게 부딪혀요. 더 천천히 도착해야 해요.' : '너무 약하게 닿았어요. 더 빠르게 부딪혀야 해요.';
+    }
     if (!r.hits.length) return '센서에 닿은 빛이 아직 없어요.';
     if (r.ok) return S.revealed ? '정답 배치에서 조건이 충족돼요.' : '조건 충족';
     const bad = r.checks.find(k => !k.ok);
@@ -2696,7 +3406,7 @@ const GAME = (() => {
         return `${others.join(' · ')} 빛이 섞여 있어요.`;
       }
       case 'band': return `${g.name} 빛이 너무 적게 들어와요.`;
-      case 'band_max': return `${g.name} 빛이 아직 너무 많이 섮여 있어요.`;
+      case 'band_max': return `${g.name} 빛이 아직 너무 많이 섞여 있어요.`;
       case 'power': return '빛이 더 많이 들어와야 해요.';
       case 'coverage': return '센서의 더 넓은 범위를 비춰야 해요.';
       case 'parallel': return '광선이 나란하지 않아요. 퍼지거나 모이고 있어요.';
@@ -2722,7 +3432,7 @@ const GAME = (() => {
   /* 스테이지 목록 */
   const nav = $('#stageNav');
   const chip = (st, i) => `<button class="st-b mono" data-stage="${i}" title="${st.id}. ${st.title} (${st.tools})" aria-label="스테이지 ${st.id} ${st.title}">${String(st.id).padStart(2, '0')}</button>`;
-  nav.innerHTML = [['기초', 0, 10], ['응용', 10, 20], ['확장', 20, STAGES.length]].map(([name, a, b]) =>
+  nav.innerHTML = [['기초', 0, 10], ['응용', 10, 20], ['확장', 20, 30], ['역학', 30, STAGES.length]].map(([name, a, b]) =>
     `<div class="st-row"><span class="st-lab">${name}</span>${STAGES.slice(a, b).map((st, j) => chip(st, a + j)).join('')}</div>`).join('');
   nav.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => loadStage(+b.dataset.stage)));
   $('#labBtn').addEventListener('click', () => { if (S.mode !== 'lab') loadLab(); });
