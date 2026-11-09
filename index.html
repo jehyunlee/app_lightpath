@@ -9,7 +9,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Pen+Script&display=swap">
 <style>
 
-/* 배치: 왼쪽은 광학 정반(캔버스), 오른쪽은 실험 노트 패널. 좁은 화면에서는 위아래로 쌓인다.
+/* 배치: 한 화면에 다 들어오는 가로 레이아웃 (가로 태블릿 16:9~5:3 기준).
+   머리띠(스테이지 이동) / 왼쪽: 광학 정반 + 그 아래 부품 선반 / 오른쪽: 실험 노트(미션·판독, 닫바닥에 선택 부품·버튼).
+   정반 크기는 JS(layoutBoard)가 남는 높이·너비에 맞춰 정한다. 세로 화면(폰)에서는 위아래로 쌓고 스크롤한다.
    어두운 암실 하나로만 디자인한 단일 테마. */
 :root {
   --page: #0a0c0f;
@@ -30,8 +32,8 @@
   --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   color-scheme: dark;
 }
-html, body { background: var(--page); color: var(--ink); }
-body { font-family: var(--f-body); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+html, body { background: var(--page); color: var(--ink); height: 100%; }
+body { margin: 0; font-family: var(--f-body); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 button { font: inherit; color: inherit; }
@@ -40,47 +42,70 @@ button { font: inherit; color: inherit; }
 .small { font-size: 12px; }
 
 .app {
-  max-width: 1380px; margin: 0 auto;
-  padding-block: 18px 40px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  height: 100dvh; display: flex; flex-direction: column; gap: 8px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
 }
+@supports not (height: 100dvh) { .app { height: 100vh; } }
 
-/* 머리 */
-.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; margin-bottom: 16px; }
-.brand { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
-.brand h1 { margin: 0; font-family: var(--f-hand); font-weight: 400; font-size: 44px; line-height: 0.9; color: var(--tape); letter-spacing: 0.01em; }
-.brand p { margin: 0; color: var(--muted); font-size: 13px; }
-.modes { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; min-width: 0; }
-.prog { font-size: 11px; color: var(--dim); margin-right: 2px; }
-.stage-nav { display: grid; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 6px; background: #0f1216; }
-.st-row { display: flex; align-items: center; gap: 3px; }
-.st-lab { width: 30px; flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--dim); text-align: center; }
-.st-b, .lab-b { position: relative; border: 0; background: transparent; border-radius: 4px; cursor: pointer; color: var(--muted); }
-.st-b { width: 34px; height: 26px; font-size: 12px; }
-.st-b.done::after { content: ""; position: absolute; right: 4px; top: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--ok); }
-.lab-b { padding: 0 14px; height: 38px; font-size: 13px; font-weight: 500; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; }
-.st-b[aria-pressed="true"], .lab-b[aria-pressed="true"] { background: #232a33; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
-.lab-b[aria-pressed="true"] { border-color: var(--line-2); }
-.st-b:hover, .lab-b:hover { color: var(--ink); }
-@media (max-width: 520px) { .st-b { width: 29px; } .st-row { gap: 2px; } .st-lab { width: 26px; } }
+/* 머리띠: 제목 · ‹ 현재 스테이지 › · 진행 · 자유 실험실 */
+.top { flex: none; display: flex; align-items: center; gap: 8px 14px; min-height: 42px; }
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; margin-right: auto; }
+.brand h1 { margin: 0; font-family: var(--f-hand); font-weight: 400; font-size: 32px; line-height: 1; color: var(--tape); letter-spacing: 0.01em; white-space: nowrap; }
+.brand p { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1240px) { .brand p { display: none; } }
+.modes { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.nav-b, .stage-cur, .lab-b { height: 40px; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; cursor: pointer; color: var(--muted); }
+.nav-b { width: 40px; flex: none; font-size: 22px; line-height: 1; padding: 0 0 3px; }
+.nav-b:disabled { opacity: .3; cursor: default; }
+.stage-cur { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: min(44vw, 420px); padding: 0 10px 0 12px; color: var(--ink); font-size: 14px; font-weight: 500; }
+.stage-cur .mono { color: var(--accent); flex: none; font-size: 13px; }
+.stage-cur .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage-cur::after { content: "▾"; color: var(--muted); flex: none; font-size: 12px; }
+.prog { font-size: 12px; color: var(--dim); margin: 0 4px; white-space: nowrap; }
+.lab-b { padding: 0 14px; font-size: 13px; font-weight: 500; flex: none; }
+.lab-b[aria-pressed="true"] { background: #232a33; color: var(--ink); border-color: var(--line-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.nav-b:hover:not(:disabled), .stage-cur:hover, .lab-b:hover { color: var(--ink); border-color: var(--line-2); }
 
-.status { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap;
-  margin-bottom: 10px; padding: 9px 12px 9px 14px; border-radius: 6px; background: #241f10; border: 1px solid #5a4a1c; color: #f1e3b5; font-size: 13px; }
+/* 스테이지 고르기 (창) */
+.pick-card { width: min(680px, 100%); }
+.pick-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.pick-h h2 { margin: 0; font-size: 17px; }
+.pick-grid { display: grid; gap: 8px; }
+.st-row { display: grid; grid-template-columns: 40px repeat(10, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.st-lab { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--dim); text-align: center; }
+.st-b { position: relative; height: 44px; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; cursor: pointer; color: var(--muted); font-size: 14px; padding: 0; }
+.st-b.done::after { content: ""; position: absolute; right: 5px; top: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.st-b[aria-pressed="true"] { background: #232a33; color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.st-b:hover { color: var(--ink); border-color: var(--line-2); }
+.pick-foot { margin: 14px 0 0; min-height: 1.4em; color: var(--muted); font-size: 13px; text-wrap: pretty; }
+.pick-foot b { color: var(--ink); font-weight: 500; }
+
+.status { display: flex; align-items: center; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap;
+  padding: 8px 12px; background: #241f10; border-bottom: 1px solid #5a4a1c; color: #f1e3b5; font-size: 12.5px; }
 .status b { color: var(--accent); }
 .status-b { display: flex; gap: 6px; }
 
 /* 본문 */
-.game { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
-@media (max-width: 920px) { .game { grid-template-columns: minmax(0, 1fr); } }
-
-.board-col { min-width: 0; position: sticky; top: env(safe-area-inset-top, 0px); }
-@media (max-width: 920px) { .board-col { position: static; } }
+.game { flex: 1 1 auto; min-height: 0; display: flex; justify-content: center; gap: 12px; }
+.board-col { flex: 0 0 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .board-wrap {
-  position: relative; border-radius: 6px; overflow: hidden; background: #12161b;
+  position: relative; flex: none; width: 100%; border-radius: 6px; overflow: hidden; background: #12161b;
   box-shadow: 0 0 0 1px #000, 0 0 0 2px #20262e, 0 24px 48px -24px rgba(0,0,0,0.9);
 }
-#board { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 640; touch-action: none; outline: none; }
+#board { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+
+/* 세로 화면(폰)에서는 위아래로 쌓고 페이지를 스크롤한다 */
+@media (max-aspect-ratio: 1/1), (max-width: 760px) {
+  .app { height: auto; min-height: 100dvh; }
+  .game { flex-direction: column; }
+  .board-col { flex: none; width: auto !important; }
+  .board-wrap { height: auto !important; aspect-ratio: 1000 / 640; }
+  .panel { max-width: none !important; min-height: 0; }
+  .panel-body { overflow: visible; }
+  .top { flex-wrap: wrap; }
+  .brand { flex-basis: 100%; }
+  .stage-cur { max-width: none; flex: 1 1 auto; }
+}
 #board:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .board-wrap.dropping-out::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -92,8 +117,6 @@ button { font: inherit; color: inherit; }
   font-size: 12px; pointer-events: none; opacity: 0; transition: opacity .15s;
 }
 .board-wrap.dropping-out .out-msg { opacity: 1; }
-.board-foot { margin: 10px 2px 0; color: var(--dim); font-size: 12px; }
-.board-foot b { color: var(--muted); font-weight: 500; }
 
 /* 마스킹 테이프 라벨 */
 .tape {
@@ -122,24 +145,29 @@ button { font: inherit; color: inherit; }
 }
 @keyframes bob { 50% { transform: translateY(4px); } }
 
-/* 패널 */
-.panel { display: flex; flex-direction: column; gap: 0; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
-.sec { padding: 16px 18px; border-top: 1px solid var(--line); min-width: 0; }
-.sec:first-child { border-top: 0; }
-.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px;
+/* 실험 노트 패널: 위는 스크롤 영역(미션·판독), 아래는 항상 보이는 닫바닥(선택 부품·버튼) */
+.panel { flex: 1 1 340px; min-width: 300px; max-width: 470px; min-height: 0; display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.panel-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.panel-foot { flex: none; border-top: 1px solid var(--line); background: #11151a; }
+.sec { padding: 14px 16px; border-top: 1px solid var(--line); min-width: 0; }
+.panel-body .sec:first-child { border-top: 0; }
+.panel-foot .sec { border-top: 0; padding: 10px 14px; }
+.panel-foot .sec + .sec { border-top: 1px solid var(--line); }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted); }
 .sec-h .small, .sec-h .mono { letter-spacing: 0; font-weight: 400; }
-.mission .brief { margin: 10px 0 0; color: #cdd3db; text-wrap: pretty; }
-.mission .tools { margin: 14px 0 0; font-size: 12.5px; color: var(--ink); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.mission .brief { margin: 8px 0 0; color: #cdd3db; text-wrap: pretty; }
+.mission .tools { margin: 10px 0 0; font-size: 12.5px; color: var(--ink); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .mission .tools span { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
 .mission .brief b { color: var(--ink); font-weight: 700; }
 
-.rds { display: grid; gap: 18px; }
+.rds { display: grid; gap: 14px; }
 .rd-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
 .rd-name { font-family: var(--f-hand); font-size: 19px; line-height: 1; color: var(--tape); }
 .rd-n { font-size: 11px; }
-canvas.spec { display: block; width: 100%; height: 92px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); }
-.meters { display: grid; gap: 10px; margin-top: 12px; }
+canvas.spec { display: block; width: 100%; height: 72px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); }
+.meters { display: grid; gap: 8px; margin-top: 10px; }
 .meter .m-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
 .meter .m-top b { color: var(--ink); font-weight: 600; }
 .m-bar { position: relative; height: 6px; background: #0b0e12; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--line); }
@@ -149,25 +177,32 @@ canvas.spec { display: block; width: 100%; height: 92px; border-radius: 4px; box
 .verdict { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
 .verdict.ok { color: var(--ok); }
 
-.inv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* 부품 선반: 정반 바로 아래 한 줄. 부품이 많으면 옆으로 밀어 본다 */
+.dock { flex: none; min-width: 0; display: flex; align-items: stretch; gap: 10px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.dock-h { flex: none; align-self: center; width: 44px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1.3; }
+.dock-h small { display: block; font-weight: 400; letter-spacing: 0; color: var(--dim); font-size: 10.5px; }
+.inv { flex: 1 1 auto; min-width: 0; display: flex; gap: 5px; overflow-x: auto; overflow-y: hidden; padding: 1px; scrollbar-width: thin; }
 .part {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 8px 4px 7px; background: #0f1317; border: 1px solid var(--line); border-radius: 5px;
+  position: relative; flex: 1 1 88px; min-width: 70px; max-width: 112px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 6px 4px 5px; background: #0f1317; border: 1px solid var(--line); border-radius: 5px;
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .part:hover:not(:disabled) { border-color: #4a5462; background: #141a20; }
 .part:active:not(:disabled) { cursor: grabbing; }
 .part:disabled { opacity: .35; cursor: default; }
 .part img { width: 56px; height: 44px; pointer-events: none; }
-.part .pn { font-size: 12px; font-weight: 500; white-space: nowrap; }
-.part .pf { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+.part .pn { font-size: 12px; font-weight: 500; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.part .pf { font-size: 10.5px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
 .part .pc { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--accent); }
 .part:disabled .pc { color: var(--dim); }
 
-.sel-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.sel-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .sel-top .mono { font-size: 12px; }
-.rot-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
-.rot-row .ang { flex: 1; text-align: center; font-size: 15px; color: var(--accent); }
+.sel-top #selRet { margin-left: auto; }
+.rot-row { display: flex; align-items: center; gap: 6px; }
+.rot-row .btn { flex: 1 1 0; padding-inline: 4px; }
+.rot-row .ang { flex: 1.2 1 0; text-align: center; font-size: 15px; color: var(--accent); }
+.sel-empty { margin: 0; min-height: 2.6em; display: flex; align-items: center; }
 
 .btn {
   background: #1b2128; border: 1px solid var(--line-2); border-radius: 4px; padding: 8px 14px;
@@ -182,8 +217,16 @@ canvas.spec { display: block; width: 100%; height: 92px; border-radius: 4px; box
 button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-#hintBox { flex-basis: 100%; display: grid; gap: 8px; }
+.actions .btn { flex: 1 1 auto; }
+#hintBox { display: grid; gap: 8px; margin-top: 12px; }
 #hintBox:empty { display: none; }
+
+/* 손가락으로 누르는 화면: 버튼을 더 크게 */
+@media (pointer: coarse) {
+  .btn { min-height: 42px; }
+  .btn.sm { min-height: 40px; }
+  .seg-b { padding-block: 9px; }
+}
 .hint { margin: 0; display: flex; gap: 10px; font-size: 13px; color: #cdd3db; text-wrap: pretty; }
 .hint .mono { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--tape); color: var(--tape-ink);
   font-size: 11px; font-weight: 600; display: grid; place-items: center; margin-top: 1px; }
@@ -257,27 +300,25 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
       <p>빛을 꺾고 모으고, 구슬을 굴리는 물리 퍼즐</p>
     </div>
     <nav class="modes" aria-label="스테이지 선택">
-      <span class="prog mono" id="progress">0 / 20 클리어</span>
-      <div class="stage-nav" id="stageNav"><div class="st-row"><span class="st-lab">기초</span><button class="st-b mono" data-stage="0" title="1. 파란빛만 (프리즘 · 평면거울 · 슬릿)" aria-label="스테이지 1 파란빛만" aria-pressed="true">01</button><button class="st-b mono" data-stage="1" title="2. 잠망경 (평면거울 2개)" aria-label="스테이지 2 잠망경" aria-pressed="false">02</button><button class="st-b mono" data-stage="2" title="3. 바늘구멍 (볼록렌즈)" aria-label="스테이지 3 바늘구멍" aria-pressed="false">03</button><button class="st-b mono" data-stage="3" title="4. 뉴턴식 망원경 (오목거울 · 소형 거울)" aria-label="스테이지 4 뉴턴식 망원경" aria-pressed="false">04</button><button class="st-b mono" data-stage="4" title="5. 빛으로 가득 (오목렌즈 · 평면거울)" aria-label="스테이지 5 빛으로 가득" aria-pressed="false">05</button><button class="st-b mono" data-stage="5" title="6. 두 센서 한 번에 (볼록거울)" aria-label="스테이지 6 두 센서 한 번에" aria-pressed="false">06</button><button class="st-b mono" data-stage="6" title="7. 거울 없이 (프리즘 2개)" aria-label="스테이지 7 거울 없이" aria-pressed="false">07</button><button class="st-b mono" data-stage="7" title="8. 빨강과 초록 나누기 (프리즘 · 평면거울 · 슬릿 2개)" aria-label="스테이지 8 빨강과 초록 나누기" aria-pressed="false">08</button><button class="st-b mono" data-stage="8" title="9. 다시 백색광 (볼록렌즈)" aria-label="스테이지 9 다시 백색광" aria-pressed="false">09</button><button class="st-b mono" data-stage="9" title="10. 빔 확장기 (오목렌즈 · 볼록렌즈)" aria-label="스테이지 10 빔 확장기" aria-pressed="false">10</button></div><div class="st-row"><span class="st-lab">응용</span><button class="st-b mono" data-stage="10" title="11. 보라 레이저 포인터 (프리즘 · 슬릿 · 볼록렌즈)" aria-label="스테이지 11 보라 레이저 포인터" aria-pressed="false">11</button><button class="st-b mono" data-stage="11" title="12. 빛의 삼원색 (볼록렌즈 · 평면거울)" aria-label="스테이지 12 빛의 삼원색" aria-pressed="false">12</button><button class="st-b mono" data-stage="12" title="13. 분광기 (큰 프리즘 · 오목거울)" aria-label="스테이지 13 분광기" aria-pressed="false">13</button><button class="st-b mono" data-stage="13" title="14. 분산 되돌리기 (프리즘 · 평면거울)" aria-label="스테이지 14 분산 되돌리기" aria-pressed="false">14</button><button class="st-b mono" data-stage="14" title="15. 반사식 빔 확장기 (볼록거울 · 오목거울)" aria-label="스테이지 15 반사식 빔 확장기" aria-pressed="false">15</button><button class="st-b mono" data-stage="15" title="16. 무지개 넓히기 (프리즘 · 볼록거울)" aria-label="스테이지 16 무지개 넓히기" aria-pressed="false">16</button><button class="st-b mono" data-stage="16" title="17. 손전등 평행광 (볼록렌즈 · 평면거울)" aria-label="스테이지 17 손전등 평행광" aria-pressed="false">17</button><button class="st-b mono" data-stage="17" title="18. 케플러 망원경 (대물렌즈 · 접안렌즈 · 평면거울)" aria-label="스테이지 18 케플러 망원경" aria-pressed="false">18</button><button class="st-b mono" data-stage="18" title="19. 전반사 초점 (프리즘 · 볼록렌즈)" aria-label="스테이지 19 전반사 초점" aria-pressed="false">19</button><button class="st-b mono" data-stage="19" title="20. 두 실험 동시에 (프리즘 · 슬릿 · 볼록렌즈 · 평면거울 2개)" aria-label="스테이지 20 두 실험 동시에" aria-pressed="false">20</button></div></div>
+      <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
+      <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
+      <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
+      <span class="prog mono" id="progress">0 / 40 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
     </nav>
   </header>
 
   <main class="game">
     <div class="board-col">
-      <div class="status" id="status" hidden="">
-        <span><b>정답 배치</b>를 보여주고 있어요. 부품을 움직여 보며 원리를 살펴보세요.</span>
-        <span class="status-b"><button class="btn sm" id="statusRetry">다시 도전</button><button class="btn sm primary" id="statusNext">다음 스테이지</button></span>
-      </div>
       <div class="board-wrap" id="boardWrap">
-        <canvas id="board" tabindex="0" aria-label="광학 실험대. 부품을 끌어 놓고 돌려서 빛의 경로를 바꿉니다." width="983" height="629"></canvas>
-        <div class="coach" id="coach" style="left: 15%; top: 23.4375%;"><span>프리즘을 이 빛줄기 위로 끌어 오세요</span></div>
+        <canvas id="board" tabindex="0" aria-label="광학 실험대. 부품을 끌어 놓고 돌려서 빛의 경로를 바꿉니다."></canvas>
+        <div class="coach" id="coach" hidden><span></span></div>
         <div class="out-msg">여기서 놓으면 부품함으로 돌아가요</div>
-        <div class="clear" id="clear" hidden="" role="dialog" aria-modal="true" aria-labelledby="clearTitle">
+        <div class="clear" id="clear" hidden role="dialog" aria-modal="true" aria-labelledby="clearTitle">
           <div class="clear-card">
             <div class="stamp">CLEAR</div>
-            <p class="eyebrow mono" id="clearEyebrow">STAGE 01 · 실험 기록</p>
-            <h2 id="clearTitle">파란빛만 골라냈어요</h2>
+            <p class="eyebrow mono" id="clearEyebrow"></p>
+            <h2 id="clearTitle"></h2>
             <dl class="stats" id="clearStats"></dl>
             <div class="clear-btns">
               <button class="btn ghost" id="clearKeep">계속 다듬기</button>
@@ -287,60 +328,33 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
           </div>
         </div>
       </div>
-      <p class="board-foot">정반 구멍 간격 25 mm · <b>노란 손잡이</b>를 끌면 회전, 부품을 판 밖으로 끌어내면 회수 · 볼트 표시는 고정 부품</p>
+      <div class="dock" id="dock">
+        <div class="dock-h">부품함<small>끌어 놓기</small></div>
+        <div class="inv" id="inv"></div>
+      </div>
     </div>
-    <aside class="panel" id="panel" aria-label="실험 노트">
-        <section class="sec mission">
-          <div class="tape tape-lg">스테이지 1 · 파란빛만</div>
-          <p class="tools"><span>도구</span>프리즘 · 평면거울 · 슬릿</p>
-          <p class="brief">백색광에서 <b>파란빛(450–495 nm)</b>만 골라 센서에 보내세요. 다른 색이 섞이면 통과하지 못해요.</p>
-        </section>
-      <section class="sec readout">
-        <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount">빛 없음</span></div>
-        <div class="rds">
-          
-            <div class="rd" data-i="0">
-              
-              <canvas class="spec" aria-label="센서가 받은 빛의 스펙트럼" width="292" height="92" style="height: 92px;"></canvas>
-              <div class="meters">
-          <div class="meter ">
-            <div class="m-top"><span>파랑 세기</span><span class="mono"><b>0%</b> / 기준 50%</span></div>
-            <div class="m-bar"><i style="width:0%"></i><s style="left:50%"></s></div>
-          </div>
-          <div class="meter ">
-            <div class="m-top"><span>파랑 순도</span><span class="mono"><b>0%</b> / 기준 90%</span></div>
-            <div class="m-bar"><i style="width:0%"></i><s style="left:90%"></s></div>
-          </div><p class="verdict ">센서에 닿은 빛이 아직 없어요.</p></div>
-            </div>
+    <aside class="panel" aria-label="실험 노트">
+      <div class="panel-body" id="panel"></div>
+      <div class="panel-foot">
+        <div class="status" id="status" hidden>
+          <span><b>정답 배치</b>를 보여주고 있어요. 부품을 움직여 보며 원리를 살펴보세요.</span>
+          <span class="status-b"><button class="btn sm" id="statusRetry">다시 도전</button><button class="btn sm primary" id="statusNext">다음 스테이지</button></span>
         </div>
-      </section>
-      <section class="sec">
-        <div class="sec-h"><span>부품함</span><span class="dim small">끌어서 놓거나 눌러서 꺼내기</span></div>
-        <div class="inv" id="inv" style="grid-template-columns: repeat(3, minmax(0px, 1fr));"><button class="part" data-key="prism" aria-label="프리즘 60°, 1개">
-        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAAFNUlEQVR4AeyYW28TRxTHz673Yu9ySRRERUF9qFSeeaig8NBP0I/QfgNiHvra79GHhkJIUFK1fJEKVMqlaiGo8FBwEif2esbenZ3L6RnjiDaNiy+7boNizdHZmfFefud/5uzFhXf8dwR42AWeqYJ3G7hobZZBmxng/Vd40QG4Zs1uzwpyZoDKgUsEtU72i3ZgkfxM2kwAbVpa5bTWD8luE9nlWak4E0BAuGoMrB8PKhvHncoGAT4mFevkS2+lA/bVc6AiMrESVlTkVlWEMv8KEa7YOSj5VzpgPzUNrM0fc6NUeVwp5DU/iAya26RsvexULRWwrxBiJfbkndBzoiYTvMkMB5QIUq0D4iNK1VILTmmAFs6qh+Dc8lzfz6TH/SBEgyEK8HkUBBHNrSJAqQWnNEC7tLQ2t0MX7uQaxGZH8DQTBCiwxYVAUrFagaf0v4dlqlgKoFWPLvyaUO6yBxALDbkxIQZWwYG3KlY9iHMJt0jFK/fpQYD2KbyVAugALJJ6q5HOjyXdbrfRzHIhEkiSDPZ8o5nknSTvurL7TGtYIRXrhdPRAQsHtOqRIm6b5csnIidK8grzA0C7/vb7Zm7YQhREUog12uey3ZeuqdBWOCBVxmtIihzzVNzmyHtphiYFHOa3uODzrhv10vxLq3zRqVooYF8BhAeo8h9OxWG0RQoFYRVNCDjMt3OPgUdhMfjYGCy84IwH+C/JY+FIgbpBvH8ycKJWjtwgUNV8u21lhi+EbiSUWaZTfFKkioUBEtxFevy6paX6ngvkSUezgGg12UHejlmz83lqBPqINaOfUlAeaAcKKziFAFr1bORfbKU35mInep5oxg2QhIB6iN8/32gbHtG+UsMNKjiFqVgIIKlXJ5DlD07VYk6PYkGV1hylZ1CtYdD3b+9nKQqe+3zOy5/Tm8dNUnGVgjZ1mxrQqkcRd7pJtjrny+hlWzPTRaSCgabbG/jR+i83e8x3Hd8eCxF+tseelnBqQKueUeamFzjBLqH1Blc0qd/Y0a3Tc27cE/omHXtx2oIzFaCNsCK4VPDvYs/xnrQYU7yHHdPDSX1zmwsBgGyXPaIssAVnqreNiQEtHEW4X+1OhbU4k5iHpoYhrbtp/c6u4WcWoljk5jolxFQFZ2JAelm9SurdUClbb6eGPW8mTFHFVLQAp/XbTAvEHB2pniDdV+mDVT+QBDt2mwiwr54D7h87vaWFai3e7EmmahGSeKj0wE/Z35QVtnDCiaU0K5Qpl+w5YYLfRIB0nrpU5tuzoRcn3ZS1E0CVcOx7PfA09vf+YHzE+cYrLZKWYZHq/WbPRZATrcWxAQeRdEKZry1QtXvGXVaNEKtRTPZXb7et7R/f69s5a3v9/R7xGZcsCALs8GyZbhs/3WvgCgV3rDYW4KBk15UxS/SNxe/0DKMnDyzTXtAj37m4Emc5LNH9duyCMxYgLfZLSprrQZav2ar5cFtyYJ3XEf2Hfz087fzmy1Zuj8S3m4+sivSEM1aqjgzYT03EeiblveM1FW/QJzLZSnBHIcoDfTJkfO//o8///qrDzp2tzndT8Q1V1bFUHBnQLnKpcCkKza/0eo4XPjw5/+nHp9/7jKxs/xGdK/ADtOe216DQjHzbGAmwrx7liTTmbqac842u+36ja8hm6zPln5cmv+u47si3jZEArXrEB3HofR2HVbL/1tO10DsKXB0UPeoObyMBVhA+n8BK3Yc+R34xHOvNzEiAF844P/5f7Q3KwVsjAR686+EYPQI8HDoNv8ojBYfH5nDMvPMK/gkAAP//Gg9JAwAAAAZJREFUAwBJlU+zji+3PgAAAABJRU5ErkJggg==" alt="" width="56" height="44"><span class="pn">프리즘</span><span class="pf mono">60°</span><span class="pc mono">×1</span></button><button class="part" data-key="mirror" aria-label="평면거울 100 mm, 1개">
-        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAABr0lEQVR4AeyYzUrDQBDHt0naJpFSa4US9GF8AI++gYIXzx48CYIHzyL4AD5Vjh6qNGmUmmza5kNHCJRtEZLs7uCyhSHdpZmd//ymwyQGkfDxw/LYn5Un/msQgD08vTxeXd/dnp6dX4g+XopAa0WsrpGP91zn18LZ2+U8DG4Ko3CVEMiKoEls5XnObgtZSyHIRj7cH7FbwtYoAt+nU9KznY4wVRuOUQQORyOSLBbFRhzCvqIIXKaU9B2FCQKuPFvDRbihENRNhiNXHIK6yfBDiEIQwtdNBrLAwVAIKj/J2I6t9iQDlWd1LXVn0ZSmoFGK1fsPcgpp4nkkW2clJ3d/ukERCE3GHQyknC3lEDbFusmwGWmxRiGom0wLYuytKAR1k2ExtFijEIR49SQDWeBgKAT1JMOBXOUChaCeZKr0c7iiENSTDAdylQsUgp8fEXEHCj8uQXZXKf33D7ygY6f1bWfnvohNnBKNImJaXRF6tnyiCIRJZkkVLlHdZLYKrfkGSokq32SKosxM02yOpcadUghmvZ/3vIUZfsXJPE5oOPGOng/Gh/cG6dAasTb66TcAAAD//+gbStwAAAAGSURBVAMAB3ueEm9qAroAAAAASUVORK5CYII=" alt="" width="56" height="44"><span class="pn">평면거울</span><span class="pf mono">100 mm</span><span class="pc mono">×1</span></button><button class="part" data-key="slit" aria-label="슬릿 폭 30, 1개">
-        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAAsCAYAAAAwwXuTAAABpklEQVR4AexYMUvDYBC9JqVKKyK4qLXSNsXF0clB8B84KDjp4tJRCsXRbiJC8T85ODm6lDYRa1VcFLEFS0z1li5JIJLesy0XePDl+L53996DwBeDQM/eYbm5e3D8xtg/KjdAbQkm0DTN2faDs8BIUMKdOoEsqGitU75QIs/zPvgdAViCLKbX61K//0VmMrnK7whABb48d+ip00boGvaAChx2BS5UINBskVaaoIitQFJNEGi2SCtNUMRWIKkmCDRbpNW/JDiY1tuEVbSIIRJVCOnfEgwhiVIu5PNOpXLSZZSs4muUM6PYAxN4Uatub21uzDHOz6o7oxg+CgdMYJRhJPaoQAlXkZyaINJtiV6wBE9rl9c3t3efDF5LiAnihAm0bXuxXr/KMHgdNIxEDSYwYRjzLbtFDAkhYZwwgWEDSNdVoLTD0vyaoITD/MGR4A3i1ASDXJmkmiYYI62xOKoJjkUMMYbQBGOY5zu6ks3R0nLWV5csQBNMpWYonc5I6vFxG76KUIH/Zt87TbJbDfp23UehNj5anEAaJHNrhXeG8Xs39E0iVPgBAAD//9GPpcYAAAAGSURBVAMA36dbL+b8MIIAAAAASUVORK5CYII=" alt="" width="56" height="44"><span class="pn">슬릿</span><span class="pf mono">폭 30</span><span class="pc mono">×1</span></button></div>
-      </section>
-      <section class="sec" id="selSec">
-        <div class="sec-h"><span>선택한 부품</span></div>
-        <div id="selBody" data-id=""><p class="dim small">판 위의 부품을 누르면 여기서 각도와 위치를 정밀하게 조정할 수 있어요.</p></div>
-      </section>
-      <section class="sec actions">
-        <button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>
-        <div id="hintBox"></div>
-      </section>
-      <details class="sec phys">
-        <summary>조작법과 이 실험대의 물리</summary>
-        <ul>
-          <li><b>이동</b> 부품을 끌기 · 방향키 1 mm (Shift 10 mm)</li>
-          <li><b>회전</b> 노란 손잡이 끌기 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
-          <li><b>회수</b> 판 밖으로 끌어내기 · Delete</li>
-        </ul>
-        <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
-        <p>프리즘 유리는 색 분리가 잘 보이도록 분산을 과장했어요. n = 1.67(400 nm) ~ 1.50(700 nm). 렌즈는 분산이 작은 유리(n ≈ 1.52)예요. 렌즈와 곡면 거울의 초점거리 f는 부품함에 적혀 있어요.</p>
-        <p>회절은 다루지 않는 기하광학 모형입니다. 볼트 표시가 있는 부품은 정반에 고정되어 움직일 수 없어요.</p>
-      </details></aside>
+        <section class="sec" id="selSec">
+          <div class="sec-h"><span>선택한 부품</span><span class="dim small">노란 손잡이로 회전 · 판 밖으로 끌면 회수</span></div>
+          <div id="selBody"></div>
+        </section>
+        <section class="sec actions" id="actions"></section>
+      </div>
+    </aside>
   </main>
+</div>
+<div class="modal" id="stagePick" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+  <div class="modal-card pick-card">
+    <div class="pick-h"><h2 id="pickTitle">스테이지 고르기</h2><span class="mono dim" id="pickProg"></span></div>
+    <div class="pick-grid" id="stageNav"></div>
+    <p class="pick-foot" id="pickFoot"></p>
+  </div>
 </div>
 <div class="modal" id="giveup" hidden="" role="dialog" aria-modal="true" aria-labelledby="giveTitle" aria-describedby="giveDesc">
   <div class="modal-card">
@@ -3046,6 +3060,7 @@ const MECH = (() => {
   document.addEventListener('keydown', e => {
     if (e.target.closest && e.target.closest('input, textarea, select')) return;
     if (!modal.hidden) { if (e.key === 'Escape') closeModal(); return; }
+    if (!picker.hidden) { if (e.key === 'Escape') closePicker(); return; }
     if (S.overlay) { if (e.key === 'Escape') hideClear(); return; }
     const sel = selObj();
     if (!sel) return;
@@ -3115,9 +3130,23 @@ const MECH = (() => {
     updateInv();
   }
 
-  /* ---------- 패널 ---------- */
+  /* ---------- 배치 ---------- */
   const boardWrap = $('#boardWrap');
   const panel = $('#panel');
+  const gameEl = $('.game'), dockEl = $('#dock');
+  // 세로 화면에서는 CSS가 위아래로 쌓고, 정반은 너비 100%로 두어 페이지를 스크롤한다
+  const stackedMQ = matchMedia('(max-aspect-ratio: 1/1), (max-width: 760px)');
+  // 가로 화면: 정반은 (남는 높이 − 부품 선반)과 (너비 − 패널 최소 폭) 안에서 가장 크게, 패널이 나머지를 차지한다
+  const boardCol = $('.board-col');
+  function layoutBoard() {
+    if (stackedMQ.matches) { boardCol.style.width = ''; boardWrap.style.height = ''; return; }
+    const gap = 8, panelMin = 300 + 12;
+    const availH = gameEl.clientHeight - dockEl.offsetHeight - gap;
+    const availW = gameEl.clientWidth - panelMin;
+    const w = Math.floor(Math.max(360, Math.min(availH * W / H, availW)));
+    boardCol.style.width = `${w}px`;
+    boardWrap.style.height = `${Math.floor(w * H / W)}px`;
+  }
   const stageOf = () => STAGES[S.stage];
   const partName = k => partDef(k).name;
   const partParamsOf = k => Object.assign({}, PARTS[partDef(k).type].defaults, partDef(k).params);
@@ -3144,6 +3173,7 @@ const MECH = (() => {
           <div class="tape tape-lg">스테이지 ${st.id} · ${st.title}</div>
           <p class="tools"><span>도구</span>${st.tools}</p>
           <p class="brief">${st.brief}</p>
+          <div id="hintBox"></div>
         </section>`;
     } else {
       html += `
@@ -3186,26 +3216,14 @@ const MECH = (() => {
             </div>`).join('')}
         </div>
       </section>
-      <section class="sec">
-        <div class="sec-h"><span>부품함</span><span class="dim small">끌어서 놓거나 눌러서 꺼내기</span></div>
-        <div class="inv" id="inv"></div>
-      </section>
-      <section class="sec" id="selSec">
-        <div class="sec-h"><span>선택한 부품</span></div>
-        <div id="selBody"></div>
-      </section>
-      <section class="sec actions">
-        ${S.mode === 'stage'
-          ? `<button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>`
-          : `<button class="btn" id="clearAll">부품 모두 회수</button>`}
-        <div id="hintBox"></div>
-      </section>
       <details class="sec phys">
         <summary>조작법과 이 실험대의 물리</summary>
         <ul>
+          <li><b>꺼내기</b> 아래 부품함에서 정반으로 끌어 놓거나, 눌러서 빈자리에 꺼내기</li>
           <li><b>이동</b> 부품을 끌기 · 방향키 1 mm (Shift 10 mm)</li>
-          <li><b>회전</b> 노란 손잡이 끌기 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
-          <li><b>회수</b> 판 밖으로 끌어내기 · Delete</li>
+          <li><b>회전</b> 노란 손잡이 끌기 · 오른쪽 아래 각도 버튼 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
+          <li><b>회수</b> 판 밖으로 끌어내기 · 회수 버튼 · Delete</li>
+          <li><b>정반</b> 구멍 간격 25 mm · 볼트 표시는 고정 부품</li>
         </ul>
         <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
         <p>프리즘 유리는 색 분리가 잘 보이도록 분산을 과장했어요. n = 1.67(400 nm) ~ 1.50(700 nm). 렌즈는 분산이 작은 유리(n ≈ 1.52)예요. 렌즈와 곡면 거울의 초점거리 f는 부품함에 적혀 있어요.</p>
@@ -3213,6 +3231,10 @@ const MECH = (() => {
         <p><b>역학</b> 종이는 받은 빛이 14 mm 안에 기준 세기 이상 모이면 타서 사라집니다(종이 색과 같은 빛은 반사되어 소용없어요). 위아래 양면에 받은 빛은 합산돼요. 쇠구슬은 빛을 막으므로 구슬이 비키면 그 뒤의 센서가 빛을 받습니다(센서 판정은 실험이 끝난 상태 기준). 쇠구슬은 중력 4 m/s²의 작은 실험대에서 굴러가며(속이 찬 구: 가속도 5/7배), 판자·벽·렌즈·프리즘 등 모든 부품에 부딪혀 튀어요. 구슬끼리의 충돌과 진자와의 충돌은 운동량이 보존되는 탄성 충돌이라, 질량이 큰 쪽(어두운 납 구슬·무거운 추)은 느리게 밀리고 가벼운 쪽은 되튜어요. 로드셀은 접촉과 충돌 속도를 재요. 배치를 바꾸면 8초짜리 실험이 처음부터 다시 재생됩니다.</p>
       </details>`;
     panel.innerHTML = html;
+    $('#actions').innerHTML = S.mode === 'stage'
+      ? `<button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>`
+      : `<button class="btn" id="clearAll">부품 모두 회수</button>`;
+    panel.scrollTop = 0;
     bindPanel();
     updateInv();
     updateSelPanel();
@@ -3226,6 +3248,7 @@ const MECH = (() => {
     on('hintBtn', 'click', () => {
       S.hintStep = Math.min(stageOf().hints.length, S.hintStep + 1);
       renderHints();
+      const box = $('#hintBox'); if (box && box.lastElementChild) box.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
     on('answerBtn', 'click', () => openModal());
     on('resetBtn', 'click', () => { loadStage(S.stage); });
@@ -3292,7 +3315,6 @@ const MECH = (() => {
   function updateInv() {
     const box = $('#inv'); if (!box) return;
     const types = S.mode === 'lab' ? LAB_PARTS : Object.keys(S.inv);
-    box.style.gridTemplateColumns = `repeat(${Math.min(4, Math.max(3, types.length))}, minmax(0, 1fr))`;
     box.innerHTML = types.map(t => {
       const n = S.inv[t], p = partParamsOf(t), ty = partDef(t).type;
       const cnt = n === Infinity ? '∞' : `×${n}`;
@@ -3348,22 +3370,21 @@ const MECH = (() => {
     const box = $('#selBody'); if (!box) return;
     const o = selObj();
     if (!o || o.hidden) {
-      box.innerHTML = `<p class="dim small">판 위의 부품을 누르면 여기서 각도와 위치를 정밀하게 조정할 수 있어요.</p>`;
+      box.innerHTML = `<p class="dim small sel-empty">판 위의 부품을 누르면 여기서 각도와 위치를 정밀하게 조정할 수 있어요.</p>`;
       box.dataset.id = '';
       return;
     }
     if (box.dataset.id !== String(o.id)) {
       box.dataset.id = String(o.id);
       box.innerHTML = `
-        <div class="sel-top"><b id="selName"></b><span class="mono dim" id="selPos"></span></div>
+        <div class="sel-top"><b id="selName"></b><span class="mono dim" id="selPos"></span><button class="btn sm ghost" id="selRet">회수</button></div>
         <div class="rot-row">
           <button class="btn sm" data-r="-10" aria-label="반시계 10도">−10°</button>
           <button class="btn sm" data-r="-0.5" aria-label="반시계 0.5도">−0.5°</button>
           <span class="mono ang" id="selAng"></span>
           <button class="btn sm" data-r="0.5" aria-label="시계 0.5도">+0.5°</button>
           <button class="btn sm" data-r="10" aria-label="시계 10도">+10°</button>
-        </div>
-        <button class="btn sm ghost" id="selRet">부품함으로 회수</button>`;
+        </div>`;
       box.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
         const s = selObj(); if (!s) return; s.rot = normDeg(s.rot + +b.dataset.r); retrace();
       }));
@@ -3514,12 +3535,35 @@ const MECH = (() => {
   }
   function dismissCoach() { if (S.mode === 'stage' && !S.placed && S.objs.some(o => !o.locked)) { S.placed = true; } updateCoach(); }
 
-  /* 스테이지 목록 */
-  const nav = $('#stageNav');
+  /* 스테이지 이동: 머리띠의 ‹ 현재 › 와, 현재 버튼을 누르면 열리는 4×10 고르기 창 */
+  const nav = $('#stageNav'), picker = $('#stagePick');
   const chip = (st, i) => `<button class="st-b mono" data-stage="${i}" title="${st.id}. ${st.title} (${st.tools})" aria-label="스테이지 ${st.id} ${st.title}">${String(st.id).padStart(2, '0')}</button>`;
   nav.innerHTML = [['기초', 0, 10], ['응용', 10, 20], ['확장', 20, 30], ['역학', 30, STAGES.length]].map(([name, a, b]) =>
     `<div class="st-row"><span class="st-lab">${name}</span>${STAGES.slice(a, b).map((st, j) => chip(st, a + j)).join('')}</div>`).join('');
-  nav.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => loadStage(+b.dataset.stage)));
+  nav.querySelectorAll('[data-stage]').forEach(b => {
+    b.addEventListener('click', () => { closePicker(); loadStage(+b.dataset.stage); });
+    const show = () => { const st = STAGES[+b.dataset.stage]; $('#pickFoot').innerHTML = `<b>${st.id}. ${st.title}</b> · ${st.tools}`; };
+    b.addEventListener('mouseenter', show); b.addEventListener('focus', show);
+  });
+  let pickerFocus = null;
+  function openPicker() {
+    if (S.overlay) return;
+    pickerFocus = document.activeElement;
+    updateNav();
+    picker.hidden = false;
+    requestAnimationFrame(() => picker.classList.add('in'));
+    const cur = nav.querySelector('[aria-pressed="true"]') || nav.querySelector('[data-stage]');
+    cur.focus({ preventScroll: true });
+  }
+  function closePicker() {
+    if (picker.hidden) return;
+    picker.classList.remove('in'); picker.hidden = true;
+    if (pickerFocus && pickerFocus.focus) pickerFocus.focus({ preventScroll: true });
+  }
+  $('#stageCur').addEventListener('click', openPicker);
+  picker.addEventListener('click', e => { if (e.target === picker) closePicker(); });
+  $('#prevBtn').addEventListener('click', () => { if (S.mode === 'stage' && S.stage > 0) loadStage(S.stage - 1); else if (S.mode === 'lab') loadStage(STAGES.length - 1); });
+  $('#nextBtn').addEventListener('click', () => { if (S.mode === 'stage') { if (S.stage < STAGES.length - 1) loadStage(S.stage + 1); else loadLab(); } });
   $('#labBtn').addEventListener('click', () => { if (S.mode !== 'lab') loadLab(); });
   function updateNav() {
     nav.querySelectorAll('[data-stage]').forEach(b => {
@@ -3530,6 +3574,19 @@ const MECH = (() => {
     $('#labBtn').setAttribute('aria-pressed', String(S.mode === 'lab'));
     const n = cleared.size;
     $('#progress').textContent = `${n} / ${STAGES.length} 클리어`;
+    $('#pickProg').textContent = `${n} / ${STAGES.length} 클리어`;
+    const cur = $('#stageCur');
+    if (S.mode === 'stage') {
+      const st = stageOf();
+      cur.querySelector('.mono').textContent = String(st.id).padStart(2, '0');
+      cur.querySelector('.t').textContent = st.title;
+      $('#pickFoot').innerHTML = `<b>${st.id}. ${st.title}</b> · ${st.tools}`;
+    } else {
+      cur.querySelector('.mono').textContent = 'LAB';
+      cur.querySelector('.t').textContent = '자유 실험실';
+    }
+    $('#prevBtn').disabled = S.mode === 'stage' && S.stage === 0;
+    $('#nextBtn').disabled = S.mode === 'lab';
   }
 
   /* 정답 보기 */
@@ -3620,7 +3677,11 @@ const MECH = (() => {
       S.overlay = false;
       afterLoad();
     } else loadStage(0);
+    layoutBoard();
     resize();
+    new ResizeObserver(layoutBoard).observe(gameEl);
+    new ResizeObserver(layoutBoard).observe(dockEl);
+    stackedMQ.addEventListener('change', layoutBoard);
     new ResizeObserver(() => { resize(); resizeSpec(); updateReadout(); }).observe(boardWrap);
     new ResizeObserver(() => { resizeSpec(); updateReadout(); }).observe(panel);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { buildBench(); dirty = true; updateReadout(); });
