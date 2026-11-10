@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c0f">
+<!-- iPhone Safari에는 Fullscreen API가 없다. 홈 화면에 추가하면 전체 화면 앱으로 열리도록 한다 -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="물리 실험실">
 <title>물리 실험실</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/">
@@ -65,6 +71,17 @@ button { font: inherit; color: inherit; }
 .lab-b { padding: 0 14px; font-size: 13px; font-weight: 500; flex: none; }
 .lab-b[aria-pressed="true"] { background: #232a33; color: var(--ink); border-color: var(--line-2); box-shadow: inset 0 0 0 1px var(--line-2); }
 .nav-b:hover:not(:disabled), .stage-cur:hover, .lab-b:hover { color: var(--ink); border-color: var(--line-2); }
+/* 전체 화면 버튼: 터치 기기에서만 (브라우저 테두리를 숨겨 정반을 크게) */
+.fs-b { display: none; width: 40px; height: 40px; flex: none; align-items: center; justify-content: center; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; color: var(--muted); cursor: pointer; padding: 0; }
+.fs-b:hover { color: var(--ink); border-color: var(--line-2); }
+.fs-b .fs-out { display: none; }
+.fs-b[aria-pressed="true"] .fs-in { display: none; }
+.fs-b[aria-pressed="true"] .fs-out { display: block; }
+@media (pointer: coarse) { .fs-b:not([hidden]) { display: inline-flex; } }
+.toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; max-width: min(92vw, 520px);
+  background: #241f10; color: #f1e3b5; border: 1px solid #5a4a1c; border-radius: 6px; padding: 9px 14px; font-size: 12.5px; text-wrap: pretty; text-align: center;
+  box-shadow: 0 12px 30px -12px rgba(0,0,0,.9); }
+.pick-h #pickLab { margin-left: auto; }
 
 /* 스테이지 고르기 (창) */
 .pick-card { width: min(680px, 100%); }
@@ -94,8 +111,8 @@ button { font: inherit; color: inherit; }
 }
 #board { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
 
-/* 세로 화면(폰)에서는 위아래로 쌓고 페이지를 스크롤한다 */
-@media (max-aspect-ratio: 1/1), (max-width: 760px) {
+/* 세로 화면(폰)에서는 위아래로 쌓고 페이지를 스크롤한다. (가로이면서 낮은 폰 화면은 아래 compact가 맡는다) */
+@media (max-aspect-ratio: 1/1), (max-width: 760px) and (min-height: 561px) {
   .app { height: auto; min-height: 100dvh; }
   .game { flex-direction: column; }
   .board-col { flex: none; width: auto !important; }
@@ -231,12 +248,12 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
 .hint .mono { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--tape); color: var(--tape-ink);
   font-size: 11px; font-weight: 600; display: grid; place-items: center; margin-top: 1px; }
 
-.ctrl { display: grid; gap: 10px; margin-top: 14px; }
+.ctrl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 14px; }   /* 슬라이더의 고유 폭이 칸을 밀어내지 않게 */
 .seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 5px; background: #0f1216; }
 .seg-b { flex: 1; border: 0; background: transparent; padding: 6px 8px; border-radius: 3px; font-size: 12.5px; cursor: pointer; color: var(--muted); }
 .seg-b[aria-pressed="true"] { background: #232a33; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
 .slider { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-.slider input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.slider input { flex: 1 1 0; width: 0; min-width: 0; accent-color: var(--accent); }
 .slider .mono { width: 52px; text-align: right; color: var(--muted); }
 .slider .lab-s { color: var(--muted); width: 48px; flex: none; }
 .sw { width: 14px; height: 14px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
@@ -284,6 +301,91 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
 .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
 .modal-btns .btn { min-width: 84px; }
 
+/* 스마트폰 가로보기(높이 560px 이하): 왼쪽 미션 · 가운데 정반 · 오른쪽 부품함+판독. 한 화면, 스크롤 없음.
+   JS(slot)가 기존 요소를 .col-l / .col-c / .col-r로 옮기고 html.compact를 켜서 이 규칙이 적용된다. */
+.cols { display: none; }
+html.compact .cols { flex: 1 1 auto; min-height: 0; display: flex; gap: 6px; }
+html.compact .game { display: none; }
+html.compact .col { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+html.compact .col-l { flex: none; width: 170px; }
+html.compact .col-c { flex: 1 1 0; min-width: 0; align-items: center; justify-content: center; }
+html.compact .col-r { flex: none; width: 150px; }
+html.compact .app { height: 100dvh; gap: 6px;
+  padding: max(6px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); }
+html.compact .top { flex: none; min-height: 0; gap: 4px; }
+html.compact .brand, html.compact .prog, html.compact .lab-b { display: none; }
+html.compact .modes { flex: 1 1 auto; min-width: 0; gap: 4px; }
+html.compact .nav-b { width: 30px; height: 34px; font-size: 18px; }
+/* 제목은 바로 아래 미션 테이프에 있으니 머리띠에는 번호만 */
+html.compact .stage-cur { height: 34px; flex: 1 1 auto; min-width: 0; max-width: none; padding: 0 6px 0 8px; font-size: 12px; gap: 4px; justify-content: center; }
+html.compact .stage-cur .mono { font-size: 13px; }
+html.compact .stage-cur .t { display: none; }
+html.compact .fs-b { display: inline-flex; width: 34px; height: 34px; }
+html.compact .sec { border: 0; }
+html.compact .mission { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+html.compact .mission .tape-lg { font-size: 15px; padding: 5px 10px 3px; max-width: 100%; }
+html.compact .mission .tools { display: none; }
+html.compact .mission .brief { font-size: 11.5px; line-height: 1.45; margin-top: 8px; }
+html.compact #hintBox { margin-top: 8px; gap: 6px; }
+html.compact .hint { font-size: 11px; gap: 6px; }
+html.compact .hint .mono { width: 16px; height: 16px; font-size: 9.5px; }
+html.compact .mission .ctrl { gap: 6px; margin-top: 8px; }
+html.compact .seg-b { font-size: 11px; padding: 7px 2px; }
+html.compact .slider { font-size: 11px; gap: 6px; }
+html.compact .slider .mono { width: 44px; }
+html.compact .slider .lab-s { width: 36px; }
+html.compact .status { flex: none; padding: 6px 8px; font-size: 11px; border: 1px solid #5a4a1c; border-radius: 6px; }
+html.compact .status .btn.sm { padding: 4px 6px; font-size: 11px; min-height: 0; }
+html.compact .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 0; }
+html.compact .actions .btn { min-height: 36px; padding: 4px 2px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.compact .board-wrap { flex: none; }
+html.compact #selSec { flex: none; width: 100%; min-height: 42px; display: flex; align-items: center; padding: 0 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+html.compact #selSec .sec-h { display: none; }
+html.compact #selBody { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+html.compact .sel-empty { font-size: 11px; min-height: 0; }
+html.compact .sel-top { margin: 0; flex: 1 1 auto; min-width: 0; gap: 6px; flex-wrap: nowrap; }
+html.compact .sel-top b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.compact .sel-top .mono { font-size: 10.5px; white-space: nowrap; }
+html.compact .sel-top #selRet { margin-left: 0; min-height: 0; padding: 4px 8px; }
+html.compact .rot-row { flex: none; gap: 4px; }
+html.compact .rot-row .btn { flex: none; min-height: 32px; padding: 4px 7px; font-size: 11.5px; }
+html.compact .rot-row .ang { flex: none; width: 54px; font-size: 13px; }
+/* 부품함은 제 높이를 지키고(위로 56%까지) 판독이 남은 자리에서 스크롤한다 */
+html.compact .dock { flex: none; min-height: 0; max-height: 56%; flex-direction: column; gap: 4px; padding: 6px; }
+html.compact .dock-h { width: auto; align-self: flex-start; font-size: 10px; }
+html.compact .dock-h small { display: none; }
+html.compact .inv { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 4px; overflow-x: hidden; overflow-y: auto; }
+html.compact .part { min-width: 0; max-width: none; padding: 4px 2px 3px; gap: 0; }
+html.compact .part img { width: 44px; height: 34px; }
+html.compact .part .pn { font-size: 10.5px; }
+html.compact .part .pf { font-size: 9.5px; }
+html.compact .part .pc { top: 2px; right: 4px; font-size: 10px; }
+html.compact .readout { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+html.compact .readout .sec-h { margin-bottom: 6px; font-size: 10px; }
+html.compact .rds { gap: 10px; }
+html.compact .rd-name { font-size: 14px; }
+html.compact .rd-n { font-size: 10px; }
+html.compact .meters { gap: 6px; margin-top: 6px; }
+html.compact .meter .m-top { font-size: 10.5px; margin-bottom: 3px; flex-wrap: wrap; gap: 0 6px; }
+html.compact .m-bar { height: 5px; }
+html.compact .verdict { font-size: 10.5px; }
+html.compact .coach span { font-size: 13px; }
+html.compact .clear { position: fixed; inset: 0; z-index: 40; padding: 10px; }
+html.compact .clear-card { width: min(540px, 100%); padding: 14px 14px 12px; }
+html.compact .clear-card h2 { font-size: 16px; margin: 4px 0 8px; }
+html.compact .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; margin-bottom: 10px; }
+html.compact .stats dd { font-size: 13px; }
+html.compact .stats div { padding-top: 5px; }
+html.compact .stamp { font-size: 15px; top: -14px; right: 12px; }
+html.compact .modal-card { padding: 14px; }
+html.compact .pick-card { width: min(560px, 100%); }
+html.compact .pick-h { margin-bottom: 8px; }
+html.compact .pick-h h2 { font-size: 14px; }
+html.compact .pick-grid { gap: 4px; }
+html.compact .st-row { gap: 4px; grid-template-columns: 32px repeat(10, minmax(0, 1fr)); }
+html.compact .st-b { height: 32px; font-size: 12px; }
+html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
+
 @media (prefers-reduced-motion: reduce) {
   .modal { transition: none; }
   .coach::after, .clear.in .stamp { animation: none; }
@@ -305,8 +407,18 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
       <span class="prog mono" id="progress">0 / 40 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
+      <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </nav>
   </header>
+
+  <!-- 스마트폰 가로보기(compact) 세 기둥: JS가 기존 요소들을 여기로 옮겨 담는다 -->
+  <div class="cols" id="cols" hidden>
+    <div class="col col-l" id="colL"></div>
+    <div class="col col-c" id="colC"></div>
+    <div class="col col-r" id="colR"></div>
+  </div>
 
   <main class="game">
     <div class="board-col">
@@ -351,11 +463,12 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
 </div>
 <div class="modal" id="stagePick" hidden role="dialog" aria-modal="true" aria-labelledby="pickTitle">
   <div class="modal-card pick-card">
-    <div class="pick-h"><h2 id="pickTitle">스테이지 고르기</h2><span class="mono dim" id="pickProg"></span></div>
+    <div class="pick-h"><h2 id="pickTitle">스테이지 고르기</h2><span class="mono dim" id="pickProg"></span><button class="btn sm" id="pickLab">자유 실험실</button></div>
     <div class="pick-grid" id="stageNav"></div>
     <p class="pick-foot" id="pickFoot"></p>
   </div>
 </div>
+<div class="toast" id="toast" role="status" hidden></div>
 <div class="modal" id="giveup" hidden="" role="dialog" aria-modal="true" aria-labelledby="giveTitle" aria-describedby="giveDesc">
   <div class="modal-card">
     <h2 id="giveTitle">미션을 포기하시겠습니까?</h2>
@@ -3138,7 +3251,44 @@ const MECH = (() => {
   const stackedMQ = matchMedia('(max-aspect-ratio: 1/1), (max-width: 760px)');
   // 가로 화면: 정반은 (남는 높이 − 부품 선반)과 (너비 − 패널 최소 폭) 안에서 가장 크게, 패널이 나머지를 차지한다
   const boardCol = $('.board-col');
+  const appEl = $('.app'), colsEl = $('#cols'), colL = $('#colL'), colC = $('#colC'), colR = $('#colR');
+  // 스마트폰 가로보기: 가로이면서 높이가 낮다 (전체 화면이든 아니든)
+  const compactMQ = matchMedia('(min-aspect-ratio: 1/1) and (max-height: 560px)');
+  /* 기존 요소들을 compact 세 기둥으로 옮기거나 제자리로 되돌린다. 부모 안 순서는 배열 순서.
+     .mission/.readout은 buildPanel이 다시 만드므로 그때마다 다시 부른다. */
+  const panelFoot = $('.panel-foot'), topEl = $('.top');
+  function slot() {
+    const compact = compactMQ.matches;
+    document.documentElement.classList.toggle('compact', compact);
+    colsEl.hidden = !compact;
+    const place = (parent, kids) => { for (const k of kids) if (k) parent.appendChild(k); };
+    const q = s => document.querySelector(s);
+    const mission = q('.mission'), readout = q('.readout'), phys = q('.phys');
+    if (compact) {
+      place(colL, [topEl, mission, statusBar, $('#actions')]);
+      place(colC, [boardWrap, $('#selSec')]);
+      place(colR, [dockEl, readout]);
+      if (phys) panel.appendChild(phys);
+    } else {
+      place(appEl, [topEl, colsEl, gameEl]);
+      place(panel, [mission, readout, phys]);
+      place(panelFoot, [statusBar, $('#selSec'), $('#actions')]);
+      place(boardCol, [boardWrap, dockEl]);
+    }
+    layoutBoard();
+  }
   function layoutBoard() {
+    if (compactMQ.matches) {
+      boardCol.style.width = '';
+      const availH = colC.clientHeight - $('#selSec').offsetHeight - 6;
+      const availW = colC.clientWidth;
+      const w = Math.floor(Math.max(200, Math.min(availH * W / H, availW)));
+      boardWrap.style.width = `${w}px`;
+      boardWrap.style.height = `${Math.floor(w * H / W)}px`;
+      $('#selSec').style.width = `${w}px`;
+      return;
+    }
+    boardWrap.style.width = ''; $('#selSec').style.width = '';
     if (stackedMQ.matches) { boardCol.style.width = ''; boardWrap.style.height = ''; return; }
     const gap = 8, panelMin = 300 + 12;
     const availH = gameEl.clientHeight - dockEl.offsetHeight - gap;
@@ -3147,6 +3297,41 @@ const MECH = (() => {
     boardCol.style.width = `${w}px`;
     boardWrap.style.height = `${Math.floor(w * H / W)}px`;
   }
+
+  /* 전체 화면. Android/데스크톱은 Fullscreen API(+가로 고정), iPhone Safari는 API가 없어 홈 화면 추가 안내 */
+  const fsBtn = $('#fsBtn'), docEl = document.documentElement;
+  const fsRequest = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+  const fsExit = document.exitFullscreen || document.webkitExitFullscreen;
+  const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (!fsRequest && standalone) fsBtn.hidden = true;
+  let toastTimer = 0;
+  function toast(msg, ms = 4200) {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms);
+  }
+  async function toggleFullscreen() {
+    if (!fsRequest) {
+      toast(standalone ? '기기를 가로로 돌리면 한 화면 배치로 바뀝니다.' : 'iPhone은 Safari 공유 ▸ ‘홈 화면에 추가’로 열면 전체 화면이 돼요. 가로로 돌리면 한 화면 배치로 바뀝니다.');
+      return;
+    }
+    try {
+      if (fsEl()) { await fsExit.call(document); return; }
+      await fsRequest.call(docEl, { navigationUI: 'hide' });
+      if (screen.orientation && screen.orientation.lock && matchMedia('(pointer: coarse)').matches) screen.orientation.lock('landscape').catch(() => {});
+    } catch (e) {
+      toast('이 브라우저에서는 전체 화면을 열 수 없어요.');
+    }
+  }
+  function updateFs() {
+    const on = !!fsEl();
+    fsBtn.setAttribute('aria-pressed', String(on));
+    fsBtn.title = fsBtn.ariaLabel = on ? '전체 화면 끝내기' : '전체 화면';
+    if (!on && screen.orientation && screen.orientation.unlock) { try { screen.orientation.unlock(); } catch (e) { /* 잠금한 적 없음 */ } }
+  }
+  fsBtn.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', updateFs);
+  document.addEventListener('webkitfullscreenchange', updateFs);
   const stageOf = () => STAGES[S.stage];
   const partName = k => partDef(k).name;
   const partParamsOf = k => Object.assign({}, PARTS[partDef(k).type].defaults, partDef(k).params);
@@ -3165,6 +3350,9 @@ const MECH = (() => {
   const goalDevices = () => S.objs.filter(o => !o.hidden && (o.type === 'sensor' ? (S.mode === 'lab' || o.goal) : o.type === 'paper' || ((o.type === 'loadcell' || o.type === 'pendulum') && o.goal)));
 
   function buildPanel() {
+    // compact 기둥으로 옮겨졌던 이전 스테이지의 미션·판독은 새로 만들므로 지운다
+    colL.querySelectorAll('.mission').forEach(el => el.remove());
+    colR.querySelectorAll('.readout').forEach(el => el.remove());
     let html = '';
     if (S.mode === 'stage') {
       const st = stageOf();
@@ -3235,6 +3423,7 @@ const MECH = (() => {
       ? `<button class="btn" id="hintBtn">힌트 보기</button><button class="btn" id="answerBtn">정답 보기</button><button class="btn ghost" id="resetBtn">처음부터</button>`
       : `<button class="btn" id="clearAll">부품 모두 회수</button>`;
     panel.scrollTop = 0;
+    slot();
     bindPanel();
     updateInv();
     updateSelPanel();
@@ -3400,7 +3589,7 @@ const MECH = (() => {
   function resizeSpec() {
     const multi = goalDevices().length > 1;
     document.querySelectorAll('canvas.spec').forEach(cv2 => {
-      const w = cv2.getBoundingClientRect().width || 280, h = multi ? 70 : 92;
+      const w = cv2.getBoundingClientRect().width || 280, h = compactMQ.matches ? 46 : multi ? 70 : 92;
       const d = Math.min(2.5, window.devicePixelRatio || 1);
       cv2.style.height = `${h}px`;
       cv2.width = Math.round(w * d); cv2.height = Math.round(h * d);
@@ -3448,7 +3637,8 @@ const MECH = (() => {
     c.restore();
     c.fillStyle = '#7f8896'; c.font = '10px "IBM Plex Mono", ui-monospace, monospace';
     c.textBaseline = 'top';
-    for (const l of [400, 500, 600, 700]) {
+    const narrow = w < 180;   // compact 판독기: 양 끝 눈금만
+    for (const l of narrow ? [400, 700] : [400, 500, 600, 700]) {
       c.textAlign = l === 400 ? 'left' : l === 700 ? 'right' : 'center';
       c.fillText(String(l), X(l), base + 10);
     }
@@ -3561,6 +3751,7 @@ const MECH = (() => {
     if (pickerFocus && pickerFocus.focus) pickerFocus.focus({ preventScroll: true });
   }
   $('#stageCur').addEventListener('click', openPicker);
+  $('#pickLab').addEventListener('click', () => { closePicker(); if (S.mode !== 'lab') loadLab(); });
   picker.addEventListener('click', e => { if (e.target === picker) closePicker(); });
   $('#prevBtn').addEventListener('click', () => { if (S.mode === 'stage' && S.stage > 0) loadStage(S.stage - 1); else if (S.mode === 'lab') loadStage(STAGES.length - 1); });
   $('#nextBtn').addEventListener('click', () => { if (S.mode === 'stage') { if (S.stage < STAGES.length - 1) loadStage(S.stage + 1); else loadLab(); } });
@@ -3677,11 +3868,12 @@ const MECH = (() => {
       S.overlay = false;
       afterLoad();
     } else loadStage(0);
-    layoutBoard();
+    slot();
     resize();
-    new ResizeObserver(layoutBoard).observe(gameEl);
-    new ResizeObserver(layoutBoard).observe(dockEl);
+    const relayout = new ResizeObserver(layoutBoard);
+    [appEl, gameEl, colC, dockEl, topEl, $('#selSec')].forEach(el => relayout.observe(el));
     stackedMQ.addEventListener('change', layoutBoard);
+    compactMQ.addEventListener('change', () => { slot(); resizeSpec(); updateReadout(); });
     new ResizeObserver(() => { resize(); resizeSpec(); updateReadout(); }).observe(boardWrap);
     new ResizeObserver(() => { resizeSpec(); updateReadout(); }).observe(panel);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { buildBench(); dirty = true; updateReadout(); });
