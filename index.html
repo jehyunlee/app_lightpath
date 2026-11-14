@@ -215,6 +215,14 @@ canvas.spec { display: block; width: 100%; height: 72px; border-radius: 4px; box
 .part .pf { font-size: 10.5px; color: var(--muted); line-height: 1.2; white-space: nowrap; }
 .part .pc { position: absolute; top: 4px; right: 6px; font-size: 11px; color: var(--accent); }
 .part:disabled .pc { color: var(--dim); }
+/* 자유 실험실: 부품함 묶음 탭 (광학 · 광원·장치 · 역학) */
+.inv-tabs { flex: none; display: flex; flex-direction: column; justify-content: center; gap: 3px; padding-right: 6px; border-right: 1px solid var(--line); }
+.inv-tab { border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11.5px; padding: 3px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.inv-tab[aria-selected="true"] { background: #232a33; color: var(--ink); border-color: var(--line-2); }
+/* 자유 실험실: 선택한 부품의 값 조정 슬라이더 */
+.tune { margin-top: 6px; }
+.tune .lab-s { width: 64px; }
+.tune .mono { width: 62px; }
 
 .sel-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .sel-top .mono { font-size: 12px; }
@@ -359,6 +367,8 @@ html.compact .dock { flex: none; min-height: 0; max-height: 56%; flex-direction:
 html.compact .dock-h { width: auto; align-self: flex-start; font-size: 10px; }
 html.compact .dock-h small { display: none; }
 html.compact .inv { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 4px; overflow-x: hidden; overflow-y: auto; }
+html.compact .inv-tabs { grid-column: 1 / -1; flex-direction: row; padding: 0 0 4px; border-right: 0; border-bottom: 1px solid var(--line); }
+html.compact .seg-b { padding: 6px 4px; font-size: 12px; }
 html.compact .part { min-width: 0; max-width: none; padding: 4px 2px 3px; gap: 0; }
 html.compact .part img { width: 44px; height: 34px; }
 html.compact .part .pn { font-size: 10.5px; }
@@ -2736,7 +2746,59 @@ const MECH = (() => {
 
   const STAGES = GAME.STAGES;
 
-  const LAB_PARTS = ['prism', 'prismRight', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'splitter', 'filter', 'slit'];
+  /* 자유 실험실 부품함: 스테이지 1~46에 나온 모든 도구. 묶음 탭별 칸(key) 목록과, 칸 → 종류·매개변수·이름(·판독 목표) */
+  const LAB_GROUPS = [
+    ['광학', ['prism', 'prismRight', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'splitter', 'filter:b', 'filter:g', 'filter:r', 'filter:cutLo', 'filter:cutHi', 'slit']],
+    ['광원·장치', ['source', 'sensor', 'wall', 'wall:post', 'paper', 'paper:r', 'paper:g', 'paper:b', 'loadcell']],
+    ['역학', ['plank', 'plank:long', 'ball', 'ball:pb', 'pendulum', 'pendulum:heavy', 'lever', 'slide']],
+  ];
+  const LAB_DEFS = {
+    'filter:b': { type: 'filter', params: { min: 450, max: 495 }, name: '파랑 필터' },
+    'filter:g': { type: 'filter', params: { min: 500, max: 565 }, name: '초록 필터' },
+    'filter:r': { type: 'filter', params: { min: 625, max: 700 }, name: '빨강 필터' },
+    'filter:cutLo': { type: 'filter', params: { min: 400, max: 565, excl: true }, name: '차단 필터 A' },
+    'filter:cutHi': { type: 'filter', params: { min: 625, max: 700, excl: true }, name: '차단 필터 B' },
+    source: { type: 'source', params: {}, name: '광원' },
+    sensor: { type: 'sensor', params: { len: 120 }, name: '센서' },
+    wall: { type: 'wall', params: { w: 150, h: 14 }, name: '벽' },
+    'wall:post': { type: 'wall', params: { w: 14, h: 30 }, name: '받침 기둥' },
+    paper: { type: 'paper', params: { w: 110, need: 0.45 }, name: '종이' },
+    'paper:r': { type: 'paper', params: { w: 110, need: 0.4, reflect: [625, 700] }, name: '빨간 종이' },
+    'paper:g': { type: 'paper', params: { w: 110, need: 0.3, reflect: [500, 565] }, name: '초록 종이' },
+    'paper:b': { type: 'paper', params: { w: 110, need: 0.3, reflect: [400, 490] }, name: '파란 종이' },
+    loadcell: { type: 'loadcell', params: { w: 90 }, name: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+    plank: { type: 'plank', params: {}, name: '판자' },
+    'plank:long': { type: 'plank', params: { len: 260 }, name: '긴 판자' },
+    ball: { type: 'ball', params: { r: 12, m: 1 }, name: '쇠구슬' },
+    'ball:pb': { type: 'ball', params: { r: 12, m: 4 }, name: '납 구슬' },
+    pendulum: { type: 'pendulum', params: { L: 190, r: 12, m: 1 }, name: '진자', goal: { checks: [{ kind: 'struck' }, { kind: 'swing', min: 10 }] } },
+    'pendulum:heavy': { type: 'pendulum', params: { L: 190, r: 16, m: 4 }, name: '무거운 진자', goal: { checks: [{ kind: 'struck' }, { kind: 'swing', min: 10 }] } },
+    lever: { type: 'lever', params: { l1: 150, l2: 150, th: 8, m: 2, amin: -40, amax: 40 }, name: '지레' },
+    slide: { type: 'slide', params: { R: 150, w: 10, a0: 135, a1: 20 }, name: '슬라이드' },
+  };
+  // 자유 실험실에서 선택한 부품의 값 조정: [매개변수, 이름, 최소, 최대, 간격, 표시]
+  const fmtMm = v => `${v} mm`, fmtDg = v => `${v}°`, fmtN = v => `${v}`;
+  const LAB_TUNE = {
+    sensor: [['len', '길이', 40, 240, 10, fmtMm]],
+    wall: [['w', '가로', 8, 600, 2, fmtMm], ['h', '세로', 6, 400, 2, fmtMm]],
+    plank: [['len', '길이', 60, 320, 10, fmtMm]],
+    paper: [['w', '폭', 30, 200, 2, fmtMm], ['need', '기준 세기', 0.1, 1, 0.05, v => `${Math.round(v * 100)}%`]],
+    ball: [['r', '반지름', 6, 20, 1, fmtMm], ['m', '질량', 1, 8, 1, v => `×${v}`]],
+    loadcell: [['w', '폭', 40, 200, 2, fmtMm]],
+    pendulum: [['L', '줄 길이', 60, 300, 10, fmtMm], ['r', '추 반지름', 8, 20, 1, fmtMm], ['m', '추 질량', 1, 8, 1, v => `×${v}`]],
+    lever: [['l1', '왼팔', 30, 250, 10, fmtMm], ['l2', '오른팔', 30, 250, 10, fmtMm], ['m', '막대 질량', 1, 8, 1, v => `×${v}`], ['amin', '왼쪽 멈춤쇠', -60, 0, 5, fmtDg], ['amax', '오른쪽 멈춤쇠', 0, 60, 5, fmtDg]],
+    slide: [['R', '반지름', 50, 250, 10, fmtMm], ['a0', '시작 각', -180, 360, 5, fmtDg], ['a1', '끝 각', -180, 360, 5, fmtDg]],
+    lensConvex: [['f', '초점거리', 60, 400, 10, fmtMm], ['h', '반높이', 16, 50, 2, fmtMm]],
+    lensConcave: [['f', '초점거리', -400, -50, 10, fmtMm], ['h', '반높이', 16, 40, 2, fmtMm]],
+    mirror: [['h', '반길이', 10, 100, 2, fmtMm]],
+    mirrorConcave: [['f', '초점거리', 60, 400, 10, fmtMm], ['h', '반높이', 20, 50, 2, fmtMm]],
+    mirrorConvex: [['f', '초점거리', 60, 400, 10, fmtMm], ['h', '반높이', 20, 50, 2, fmtMm]],
+    splitter: [['r', '반사율', 0.1, 0.9, 0.05, v => `${Math.round(v * 100)}%`], ['h', '반길이', 10, 100, 2, fmtMm]],
+    filter: [['min', '하한', 400, 700, 5, v => `${v} nm`], ['max', '상한', 400, 700, 5, v => `${v} nm`], ['h', '반높이', 8, 60, 2, fmtMm]],
+    prism: [['side', '한 변', 60, 160, 10, fmtMm]],
+    prismRight: [['side', '한 변', 40, 140, 10, fmtMm]],
+  };
+  const LAB_LABELED = new Set(['sensor', 'paper', 'loadcell', 'pendulum']); // 판독기에 나오는 장치는 번호를 붙여 구분한다
   const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0, plank: 0 };
   const BODY_TYPES = new Set(['ball', 'pendulum', 'lever']); // 시뮬레이션 상태로 그리는 부품
   const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell', 'lever', 'slide']);
@@ -2765,7 +2827,7 @@ const MECH = (() => {
     return {
       mode, stage, objs: [], inv: {}, sel: null, won: false, overlay: false,
       hintStep: 0, placed: false, revealed: false,
-      lab: { spectrum: 'white', lambda: 470, wide: false, gap: 22 },
+      lab: { spectrum: 'white', lambda: 470, beam: 'thin', gap: 22, tab: '광학' },
     };
   }
 
@@ -2780,12 +2842,10 @@ const MECH = (() => {
 
   function loadLab() {
     S = freshState('lab', 0);
-    S.objs = [
-      { type: 'source', x: 80, y: 320, rot: 0, params: {}, label: '광원', id: uid++, locked: false },
-      { type: 'sensor', x: 900, y: 320, rot: 0, params: { len: 120 }, label: '센서', id: uid++, locked: false },
-    ];
-    LAB_PARTS.forEach(t => { S.inv[t] = Infinity; });
-    applyLabSource();
+    for (const [, keys] of LAB_GROUPS) for (const k of keys) S.inv[k] = Infinity;
+    const src = newPiece('source'), sen = newPiece('sensor');
+    src.x = 80; src.y = 320; sen.x = 900; sen.y = 320;
+    S.objs = [src, sen];
     afterLoad();
   }
 
@@ -2799,15 +2859,30 @@ const MECH = (() => {
 
   const selObj = () => S.objs.find(o => o.id === S.sel) || null;
 
+  // 자유 실험실 광원 설정 → 광원 매개변수. beam: thin(가는 빔) · wide(넓은 평행광) · fan(한 점에서 퍼지는 빛)
+  const labSourceParams = L => ({
+    spectrum: L.spectrum === 'mono' ? 'mono' : 'white', lambda: L.lambda,
+    width: L.beam === 'wide' ? 70 : 0, rays: L.beam === 'thin' ? 1 : L.beam === 'wide' ? 7 : 9, fan: L.beam === 'fan' ? 24 : 0,
+  });
+  const labSourceLabel = L => L.spectrum === 'mono' ? `단색광 ${L.lambda} nm` : '백색광';
+  // 광원 설정이 적용되는 광원: 선택한 광원, 아니면 판 위의 유일한 광원. 여럿인데 고르지 않았으면 새로 꺼내는 광원에만 적용된다
+  function labSource() {
+    const sel = selObj();
+    if (sel && sel.type === 'source') return sel;
+    const srcs = S.objs.filter(o => o.type === 'source' && !o.hidden);
+    return srcs.length === 1 ? srcs[0] : null;
+  }
   function applyLabSource() {
-    const src = S.objs.find(o => o.type === 'source');
-    const L = S.lab;
-    src.params = {
-      spectrum: L.spectrum === 'mono' ? 'mono' : 'white', lambda: L.lambda,
-      width: L.wide ? 70 : 0, rays: L.wide ? 7 : 1,
-    };
-    src.label = L.spectrum === 'mono' ? `단색광 ${L.lambda} nm` : '백색광';
-    S.objs.filter(o => o.type === 'slit').forEach(o => { o.params.gap = L.gap; });
+    const src = labSource();
+    if (src) { src.params = labSourceParams(S.lab); src.label = labSourceLabel(S.lab); }
+    S.objs.filter(o => o.type === 'slit').forEach(o => { o.params.gap = S.lab.gap; });
+  }
+  // 광원을 고르면 설정 UI가 그 광원의 값을 보여준다
+  function syncLabFromSource(src) {
+    const p = Object.assign({}, PARTS.source.defaults, src.params);
+    S.lab.spectrum = p.spectrum === 'mono' ? 'mono' : 'white';
+    S.lab.lambda = p.lambda;
+    S.lab.beam = p.fan ? 'fan' : p.width ? 'wide' : 'thin';
   }
 
   /* ---------- 추적·판정 ---------- */
@@ -2818,8 +2893,10 @@ const MECH = (() => {
     replayT0 = performance.now();
     evaluate();
     dirty = true;
+    syncReadoutBlocks();
     updateReadout();
     updateSelPanel();
+    refreshLabControls();
     maybeWin();
   }
 
@@ -3375,14 +3452,7 @@ const MECH = (() => {
       const p = partGeom(o).params;
       if (o.type === 'pendulum') {
         const i = M ? M.pends.findIndex(q => q.obj === o) : -1;
-        const a = f && i >= 0 ? f.p[i] : p.a0 * Math.PI / 180;
-        const bx = o.x + p.L * Math.sin(a), by = o.y + p.L * Math.cos(a);
-        // 축 브래킷
-        roundRect(c, o.x - 12, o.y - 8, 24, 12, 2); c.fillStyle = '#2b323c'; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
-        c.beginPath(); c.arc(o.x, o.y, 2.5, 0, Math.PI * 2); c.fillStyle = '#9aa5b4'; c.fill();
-        // 줄
-        c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(bx, by); c.strokeStyle = 'rgba(220,225,235,0.75)'; c.lineWidth = 1.2 * px; c.stroke();
-        drawBall(c, bx, by, p.r, px, p.m > 1);
+        drawPendulum(c, o, p, f && i >= 0 ? f.p[i] : p.a0 * Math.PI / 180, px);
       } else if (o.type === 'lever') {
         const i = M ? M.levers.findIndex(q => q.obj === o) : -1;
         const a = f && i >= 0 ? f.l[i] : o.rot * Math.PI / 180;
@@ -3394,6 +3464,15 @@ const MECH = (() => {
         drawBall(c, st[0], st[1], p.r, px, p.m > 1);
       }
     }
+  }
+
+  // 진자: 축 브래킷 · 줄 · 추 (a: 현재 각도, rad)
+  function drawPendulum(c, o, p, a, px) {
+    const bx = o.x + p.L * Math.sin(a), by = o.y + p.L * Math.cos(a);
+    roundRect(c, o.x - 12, o.y - 8, 24, 12, 2); c.fillStyle = '#2b323c'; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+    c.beginPath(); c.arc(o.x, o.y, 2.5, 0, Math.PI * 2); c.fillStyle = '#9aa5b4'; c.fill();
+    c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(bx, by); c.strokeStyle = 'rgba(220,225,235,0.75)'; c.lineWidth = 1.2 * px; c.stroke();
+    drawBall(c, bx, by, p.r, px, p.m > 1);
   }
 
   // 정반에 볼트로 고정된 부품 표시
@@ -3643,14 +3722,24 @@ const MECH = (() => {
     const pad = 10 + 6 / scale;
     for (let i = S.objs.length - 1; i >= 0; i--) {
       const o = S.objs[i];
-      if (o.locked || o.hidden || o.type === 'wall') continue;
+      if (o.locked || o.hidden) continue;
+      if (o.type === 'pendulum') {
+        // 흔들림 범위 상자는 너무 크니 축 브래킷이나 멈춰 있는 추로만 고른다
+        const q = partGeom(o).params, a = q.a0 * Math.PI / 180, bx = o.x + q.L * Math.sin(a), by = o.y + q.L * Math.cos(a);
+        if (Math.hypot(p.x - o.x, p.y - o.y) < 14 + pad || Math.hypot(p.x - bx, p.y - by) < q.r + pad) return o;
+        continue;
+      }
       const b = partGeom(o).g.box, l = localOf(o, p.x, p.y);
       if (l.x >= b[0] - pad && l.x <= b[2] + pad && l.y >= b[1] - pad && l.y <= b[3] + pad) return o;
     }
     return null;
   }
 
-  function select(o) { S.sel = o ? o.id : null; dirty = true; updateSelPanel(); }
+  function select(o) {
+    S.sel = o ? o.id : null; dirty = true;
+    if (S.mode === 'lab') { if (o && o.type === 'source') syncLabFromSource(o); refreshLabControls(); }
+    updateSelPanel();
+  }
 
   cv.addEventListener('pointerdown', e => {
     if (S.overlay) return;
@@ -3693,7 +3782,7 @@ const MECH = (() => {
   function onDragMove(e, p) {
     const o = drag.obj;
     if (drag.kind === 'move') {
-      const out = !p.inside && !o.locked && (S.mode === 'lab' ? o.type !== 'source' && o.type !== 'sensor' : true);
+      const out = !p.inside && !o.locked;
       if (out) { o.hidden = true; o.x = clamp(p.x + drag.dx, 8, W - 8); o.y = clamp(p.y + drag.dy, 8, H - 8); }
       else {
         // 판 밖에 있던 부품이 겹치는 자리로 들어오면 빈자리를 찾을 때까지 숨긴 채로 둔다
@@ -3758,7 +3847,7 @@ const MECH = (() => {
     if (used) { e.preventDefault(); retrace(); }
   });
 
-  const canReturn = o => !o.locked && !(S.mode === 'lab' && (o.type === 'source' || o.type === 'sensor'));
+  const canReturn = o => !o.locked;
 
   function returnToInv(o) {
     if (!canReturn(o)) { o.hidden = false; return; }
@@ -3773,18 +3862,34 @@ const MECH = (() => {
   // 부품함 칸(key) → 실제 부품 종류·매개변수·이름. 같은 종류라도 초점거리가 다르면 칸이 따로 있다
   function partDef(key) {
     const st = S.mode === 'stage' ? STAGES[S.stage] : null;
-    const v = st && st.parts && st.parts[key];
+    const v = st ? st.parts && st.parts[key] : LAB_DEFS[key];
     const type = v ? v.type : key;
     const extra = st ? ((st.partParams || {})[key] || {}) : {};
     const params = Object.assign({}, extra, v ? v.params : {});
     const name = (v && v.name) || (st && (st.partNames || {})[key]) || PARTS[type].name;
-    return { type, params, name };
+    return { type, params, name, goal: v && v.goal };
   }
 
   function newPiece(key) {
     const d = partDef(key), params = { ...d.params };
-    if (S.mode === 'lab' && d.type === 'slit') params.gap = S.lab.gap;
-    return { type: d.type, key, x: W / 2, y: H / 2, rot: DEFAULT_ROT[d.type] || 0, params, id: uid++, locked: false };
+    const o = { type: d.type, key, x: W / 2, y: H / 2, rot: DEFAULT_ROT[d.type] || 0, params, id: uid++, locked: false };
+    if (S.mode === 'lab') {
+      if (d.type === 'slit') params.gap = S.lab.gap;
+      if (d.type === 'source') { Object.assign(params, labSourceParams(S.lab)); o.label = labSourceLabel(S.lab); }
+      if (d.goal) o.goal = JSON.parse(JSON.stringify(d.goal));
+      if (LAB_LABELED.has(d.type)) o.label = `${d.name} ${S.objs.filter(k => k.key === key).length + 1}`;
+    }
+    return o;
+  }
+
+  // 자유 실험실: 선택한 부품의 매개변수를 바꾼다. 커져서 다른 물체와 겹치면 되돌린다
+  function tryParam(o, k, v) {
+    const prev = o.params[k];
+    o.params[k] = v;
+    const p = partGeom(o).params;
+    const bad = (o.type === 'filter' && p.min >= p.max) || (o.type === 'slide' && Math.abs(p.a1 - p.a0) < 10) || (o.type === 'lever' && (p.amin > 0 || p.amax < 0)) || MECH.overlaps(o, S.objs);
+    if (bad) { o.params[k] = prev; blocked = { id: o.id, until: performance.now() + 350 }; dirty = true; return false; }
+    return true;
   }
 
   // 새 부품 o를 놓을 빈자리: 다른 물체와 겹치지 않고 되도록 떨어진 곳
@@ -3794,7 +3899,9 @@ const MECH = (() => {
       const ang = a * Math.PI / 4 + r * 0.4;
       cands.push({ x: W * 0.45 + Math.cos(ang) * r * 70, y: H * 0.5 + Math.sin(ang) * r * 55 });
     }
-    const fits = c => { o.x = c.x; o.y = c.y; return !MECH.overlaps(o, S.objs); };
+    // 겹치지 않고, 부품 전체(진자의 추까지)가 정반 안에 들어와야 한다
+    const restBox = () => { if (o.type !== 'pendulum') return worldBox(o); const q = partGeom(o).params; return [o.x - q.r, o.y - 8, o.x + q.r, o.y + q.L + q.r]; };
+    const fits = c => { o.x = c.x; o.y = c.y; const b = restBox(); return b[0] >= 0 && b[1] >= 0 && b[2] <= W && b[3] <= H && !MECH.overlaps(o, S.objs); };
     for (const pass of [95, 0]) {
       for (const c of cands) {
         if (c.x < 60 || c.x > W - 60 || c.y < 60 || c.y > H - 60) continue;
@@ -3912,6 +4019,13 @@ const MECH = (() => {
     if (t === 'splitter') return `R ${Math.round(p.r * 100)}%`;
     if (t === 'filter') return `${p.excl ? '차단 ' : ''}${p.min}–${p.max} nm`;
     if (t === 'prismRight') return '45·45·90°';
+    if (t === 'source') return S.lab.spectrum === 'mono' ? `${S.lab.lambda} nm` : '백색광';
+    if (t === 'sensor' || t === 'paper' || t === 'loadcell') return `${p.len || p.w} mm`;
+    if (t === 'wall') return `${p.w}×${p.h} mm`;
+    if (t === 'ball') return `r ${p.r} · m ${p.m}`;
+    if (t === 'pendulum') return `L ${p.L} · m ${p.m}`;
+    if (t === 'lever') return `${p.l1}+${p.l2} mm`;
+    if (t === 'slide') return `R ${p.R}`;
     return '60°';
   }
 
@@ -3936,8 +4050,9 @@ const MECH = (() => {
       html += `
         <section class="sec mission">
           <div class="tape tape-lg">자유 실험실</div>
-          <p class="brief">부품을 마음껏 놓아 보세요. 광원과 센서도 옮기고 돌릴 수 있어요.</p>
+          <p class="brief">스테이지에 나온 도구가 모두 부품함에 있어요. 광원·센서·구슬·지레도 몇 개든 꺼내 놓고, 부품을 고르면 아래에서 크기와 초점거리 같은 값을 바꿀 수 있어요.</p>
           <div class="ctrl">
+            <div class="sec-h"><span>광원 설정</span><span class="dim small" id="labSrcNote"></span></div>
             <div class="seg" role="group" aria-label="광원 종류">
               <button id="specWhite" class="seg-b" aria-pressed="${S.lab.spectrum === 'white'}">백색광</button>
               <button id="specMono" class="seg-b" aria-pressed="${S.lab.spectrum === 'mono'}">단색광</button>
@@ -3947,9 +4062,10 @@ const MECH = (() => {
               <input id="lam" type="range" min="400" max="700" step="5" value="${S.lab.lambda}" aria-label="파장">
               <span class="mono" id="lamVal">${S.lab.lambda} nm</span>
             </label>
-            <div class="seg" role="group" aria-label="빔 굵기">
-              <button id="beamThin" class="seg-b" aria-pressed="${!S.lab.wide}">가는 빔</button>
-              <button id="beamWide" class="seg-b" aria-pressed="${S.lab.wide}">넓은 평행광</button>
+            <div class="seg" role="group" aria-label="빔 모양">
+              <button class="seg-b" data-beam="thin" aria-pressed="${S.lab.beam === 'thin'}">가는 빔</button>
+              <button class="seg-b" data-beam="wide" aria-pressed="${S.lab.beam === 'wide'}">넓은 평행광</button>
+              <button class="seg-b" data-beam="fan" aria-pressed="${S.lab.beam === 'fan'}">퍼지는 빛</button>
             </div>
             <label class="slider">
               <span class="lab-s">슬릿 폭</span>
@@ -3959,20 +4075,7 @@ const MECH = (() => {
           </div>
         </section>`;
     }
-    const sensors = goalDevices();
-    const multi = sensors.length > 1;
-    html += `
-      <section class="sec readout">
-        <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount"></span></div>
-        <div class="rds">
-          ${sensors.map((o, i) => `
-            <div class="rd" data-i="${i}" data-type="${o.type}">
-              ${multi ? `<div class="rd-h"><span class="rd-name">${o.label || PARTS[o.type].name}</span><span class="mono dim rd-n"></span></div>` : ''}
-              ${o.type === 'sensor' ? `<canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>` : ''}
-              <div class="meters"></div>
-            </div>`).join('')}
-        </div>
-      </section>
+    html += readoutHtml() + `
       <details class="sec phys">
         <summary>조작법과 이 실험대의 물리</summary>
         <ul>
@@ -4002,6 +4105,34 @@ const MECH = (() => {
     updateReadout();
   }
 
+  // 판독기 칸: 목표가 있는 센서·로드셀·진자와 모든 종이. 자유 실험실에서는 장치를 꺼내고 넣을 때마다 다시 만든다
+  function readoutHtml() {
+    const sensors = goalDevices();
+    const multi = sensors.length > 1;
+    return `
+      <section class="sec readout">
+        <div class="sec-h"><span>센서 판독</span><span class="mono dim" id="hitCount"></span></div>
+        <div class="rds" data-ids="${sensors.map(o => o.id).join(',')}">
+          ${sensors.map((o, i) => `
+            <div class="rd" data-i="${i}" data-type="${o.type}">
+              ${multi ? `<div class="rd-h"><span class="rd-name">${o.label || PARTS[o.type].name}</span><span class="mono dim rd-n"></span></div>` : ''}
+              ${o.type === 'sensor' ? `<canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>` : ''}
+              <div class="meters"></div>
+            </div>`).join('')}
+          ${sensors.length ? '' : '<p class="dim small">센서·종이·로드셀·진자를 꺼내 놓으면 여기서 판독값을 보여줘요.</p>'}
+        </div>
+      </section>`;
+  }
+  function syncReadoutBlocks() {
+    if (!S || S.mode !== 'lab') return;
+    const old = document.querySelector('.sec.readout'); if (!old) return;
+    const ids = goalDevices().map(o => o.id).join(',');
+    if (old.querySelector('.rds').dataset.ids === ids) return;
+    const tmp = document.createElement('div'); tmp.innerHTML = readoutHtml();
+    old.replaceWith(tmp.firstElementChild);
+    resizeSpec();
+  }
+
   function bindPanel() {
     const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
     on('hintBtn', 'click', () => {
@@ -4015,29 +4146,34 @@ const MECH = (() => {
       S.objs.filter(o => canReturn(o)).forEach(o => S.objs.splice(S.objs.indexOf(o), 1));
       S.sel = null; updateInv(); retrace();
     });
-    on('specWhite', 'click', () => { S.lab.spectrum = 'white'; labChanged(true); });
-    on('specMono', 'click', () => { S.lab.spectrum = 'mono'; labChanged(true); });
-    on('beamThin', 'click', () => { S.lab.wide = false; labChanged(true); });
-    on('beamWide', 'click', () => { S.lab.wide = true; labChanged(true); });
-    on('lam', 'input', e => { S.lab.lambda = +e.target.value; labChanged(false); });
-    on('gap', 'input', e => { S.lab.gap = +e.target.value; labChanged(false); updateInv(); });
+    on('specWhite', 'click', () => { S.lab.spectrum = 'white'; labChanged(); });
+    on('specMono', 'click', () => { S.lab.spectrum = 'mono'; labChanged(); });
+    panel.querySelectorAll('[data-beam]').forEach(b => b.addEventListener('click', () => { S.lab.beam = b.dataset.beam; labChanged(); }));
+    on('lam', 'input', e => { S.lab.lambda = +e.target.value; labChanged(); });
+    on('gap', 'input', e => { S.lab.gap = +e.target.value; labChanged(); });
     renderHints();
-    paintLam();
+    refreshLabControls();
   }
 
-  function labChanged(rebuild) {
+  function labChanged() {
     applyLabSource();
-    if (rebuild) {
-      $('#specWhite').setAttribute('aria-pressed', S.lab.spectrum === 'white');
-      $('#specMono').setAttribute('aria-pressed', S.lab.spectrum === 'mono');
-      $('#beamThin').setAttribute('aria-pressed', !S.lab.wide);
-      $('#beamWide').setAttribute('aria-pressed', S.lab.wide);
-      $('#lamWrap').hidden = S.lab.spectrum !== 'mono';
-    }
-    const lv = $('#lamVal'); if (lv) lv.textContent = `${S.lab.lambda} nm`;
-    const gv = $('#gapVal'); if (gv) gv.textContent = `${S.lab.gap} mm`;
-    paintLam();
+    refreshLabControls();
+    updateInv();
     retrace();
+  }
+
+  // 광원 설정 UI를 S.lab 값에 맞춘다 (어느 광원에 적용되는지도 알려준다)
+  function refreshLabControls() {
+    if (!S || S.mode !== 'lab' || !$('#specWhite')) return;
+    $('#specWhite').setAttribute('aria-pressed', S.lab.spectrum === 'white');
+    $('#specMono').setAttribute('aria-pressed', S.lab.spectrum === 'mono');
+    panel.querySelectorAll('[data-beam]').forEach(b => b.setAttribute('aria-pressed', b.dataset.beam === S.lab.beam));
+    $('#lamWrap').hidden = S.lab.spectrum !== 'mono';
+    $('#lamVal').textContent = `${S.lab.lambda} nm`;
+    $('#gapVal').textContent = `${S.lab.gap} mm`;
+    const src = labSource(), n = S.objs.filter(o => o.type === 'source' && !o.hidden).length;
+    $('#labSrcNote').textContent = src ? (n > 1 ? '선택한 광원' : '판 위의 광원') : n ? '광원을 고르면 바꿀 수 있어요' : '새로 꺼내는 광원에 적용';
+    paintLam();
   }
 
   function paintLam() {
@@ -4062,25 +4198,42 @@ const MECH = (() => {
     const d = Math.min(2.5, window.devicePixelRatio || 1);
     c.width = 56 * d; c.height = 44 * d;
     const x = c.getContext('2d');
-    const r = PARTS[type].radius;
+    const o = { type, x: 0, y: type === 'prism' ? 8 : 0, rot: 0, params: { ...params, ...(type === 'slit' ? { gap: 22 } : {}) } };
+    const p = partGeom(o).params;
+    let r = PARTS[type].radius;
+    if (type === 'pendulum') { r = p.L / 2 + p.r + 4; o.y = -p.L / 2; }
+    else if (type === 'ball') r = p.r * 1.7;
+    else if (!r || type === 'plank') {
+      const b = PARTS[type].build(p).box;
+      r = Math.max(r, Math.hypot(b[2] - b[0], b[3] - b[1]) / 2, 14);
+      if (!PARTS[type].radius) { o.x = -(b[0] + b[2]) / 2; o.y = -(b[1] + b[3]) / 2; }
+    }
     const k = (34 / (r * 1.45)) * d;
     x.setTransform(k, 0, 0, k, c.width / 2, c.height / 2);
-    const o = { type, x: 0, y: type === 'prism' ? 8 : 0, rot: 0, params: { ...params, ...(type === 'slit' ? { gap: 22 } : {}) } };
-    drawObj(x, o, d / k);
+    const px = d / k;
+    if (type === 'wall') drawWall(x, o, px);
+    else if (type === 'ball') drawBall(x, 0, 0, p.r, px, p.m > 1);
+    else if (type === 'pendulum') drawPendulum(x, o, p, 0, px);
+    else if (type === 'lever') drawLever(x, o, p, 0, px);
+    else drawObj(x, o, px);
     iconCache[key] = c.toDataURL();
     return iconCache[key];
   }
 
   function updateInv() {
     const box = $('#inv'); if (!box) return;
-    const types = S.mode === 'lab' ? LAB_PARTS : Object.keys(S.inv);
-    box.innerHTML = types.map(t => {
+    const lab = S.mode === 'lab';
+    const group = lab ? (LAB_GROUPS.find(g => g[0] === S.lab.tab) || LAB_GROUPS[0]) : null;
+    const types = lab ? group[1] : Object.keys(S.inv);
+    const tabs = lab ? `<div class="inv-tabs" role="tablist" aria-label="부품 묶음">${LAB_GROUPS.map(([g]) => `<button class="inv-tab" role="tab" aria-selected="${g === group[0]}" data-tab="${g}">${g}</button>`).join('')}</div>` : '';
+    box.innerHTML = tabs + types.map(t => {
       const n = S.inv[t], p = partParamsOf(t), ty = partDef(t).type;
       const cnt = n === Infinity ? '∞' : `×${n}`;
       return `<button class="part" data-key="${t}" ${n > 0 ? '' : 'disabled'} aria-label="${partName(t)} ${partSpec(ty, p)}, ${n === Infinity ? '무제한' : n + '개'}">
         <img src="${partIcon(ty, p)}" alt="" width="56" height="44"><span class="pn">${partName(t)}</span><span class="pf mono">${partSpec(ty, p)}</span><span class="pc mono">${cnt}</span></button>`;
     }).join('');
     box.querySelectorAll('.part').forEach(bindPart);
+    box.querySelectorAll('.inv-tab').forEach(b => b.addEventListener('click', () => { S.lab.tab = b.dataset.tab; updateInv(); }));
   }
 
   let dock = null; // 진행 중인 부품함 끌기 { up, cancel } (창 어디서 놓여도 끝낸다)
@@ -4151,16 +4304,34 @@ const MECH = (() => {
           <span class="mono ang" id="selAng"></span>
           <button class="btn sm" data-r="0.5" aria-label="시계 0.5도">+0.5°</button>
           <button class="btn sm" data-r="10" aria-label="시계 10도">+10°</button>
-        </div>`;
+        </div>` + tuneHtml(o);
       box.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
         const s = selObj(); if (!s) return; tryRot(s, s.rot + +b.dataset.r); retrace();
       }));
       $('#selRet').addEventListener('click', () => { const s = selObj(); if (s) returnToInv(s); });
+      box.querySelectorAll('.tune input').forEach(inp => inp.addEventListener('input', () => {
+        const s = selObj(); if (!s) return;
+        const k = inp.dataset.k, def = LAB_TUNE[s.type].find(t => t[0] === k);
+        if (!tryParam(s, k, +inp.value)) inp.value = partGeom(s).params[k];
+        inp.parentElement.querySelector('.mono').textContent = def[5](partGeom(s).params[k]);
+        retrace();
+      }));
     }
-    $('#selName').textContent = PARTS[o.type].short ? partName(o.key || o.type) : (o.label || PARTS[o.type].name);
+    $('#selName').textContent = S.mode === 'lab' ? (o.label || partName(o.key || o.type)) : PARTS[o.type].short ? partName(o.key || o.type) : (o.label || PARTS[o.type].name);
     $('#selPos').textContent = `x ${Math.round(o.x)} · y ${Math.round(o.y)} mm`;
     $('#selAng').textContent = `${fmtDeg(o.rot)}°`;
     $('#selRet').hidden = !canReturn(o);
+  }
+
+  // 자유 실험실에서 고른 부품의 값 조정 슬라이더 (스테이지에서는 없다)
+  function tuneHtml(o) {
+    const defs = S.mode === 'lab' && LAB_TUNE[o.type];
+    if (!defs) return '';
+    const p = partGeom(o).params;
+    return defs.map(([k, name, min, max, step, fmt]) => `
+      <label class="slider tune"><span class="lab-s">${name}</span>
+        <input type="range" min="${min}" max="${max}" step="${step}" value="${p[k]}" data-k="${k}" aria-label="${name}">
+        <span class="mono">${fmt(p[k])}</span></label>`).join('');
   }
 
   /* 판독기 */
@@ -4452,6 +4623,7 @@ const MECH = (() => {
       S = data.S;
       S.objs.forEach(o => { o.hidden = false; });
       S.lab.spectrum = S.lab.spectrum || 'white';
+      S.lab.beam = S.lab.beam || (S.lab.wide ? 'wide' : 'thin'); S.lab.tab = S.lab.tab || '광학';
       uid = Math.max(1, ...S.objs.map(o => o.id)) + 1;
       if (S.inv) for (const k in S.inv) if (S.inv[k] === null) S.inv[k] = Infinity;
       S.overlay = false;
