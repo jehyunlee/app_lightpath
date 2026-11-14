@@ -1054,7 +1054,7 @@ const GAME = (() => {
     {
       id: 1, title: '파란빛만', tools: '프리즘 · 평면거울 · 슬릿',
       clearTitle: '백색광에서 파란빛만 골라냈어요',
-      brief: '백색광에서 <b>파란빛(450–495 nm)</b>만 골라 센서에 보내세요. 다른 색이 섞이면 통과하지 못해요.',
+      brief: '센서에 <b>파란빛(450–495 nm)</b>만 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 190, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'wall', x: 810, y: 410, rot: 0, params: { w: 380, h: 20 } },
@@ -1081,7 +1081,7 @@ const GAME = (() => {
     {
       id: 2, title: '잠망경', tools: '평면거울 2개',
       clearTitle: '높은 벽을 넘어 빛을 보냈어요',
-      brief: '빨간 레이저가 높은 벽에 막혀 있어요. <b>평면거울 두 개</b>로 빛을 위로 올렸다가 다시 앞으로 보내 센서를 켜세요. 거울은 은빛 앞면만 반사하고 뒷면은 빛을 흡수해요.',
+      brief: '높은 벽 너머 센서에 빨간 레이저를 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 560, rot: 0, params: { spectrum: 'mono', lambda: 650 }, label: '레이저 650 nm' },
         { type: 'wall', x: 540, y: 380, rot: 0, params: { w: 24, h: 520 } },
@@ -1101,7 +1101,7 @@ const GAME = (() => {
     {
       id: 3, title: '바늘구멍', tools: '볼록렌즈',
       clearTitle: '넓은 빛을 한 점으로 모았어요',
-      brief: '넓은 초록 평행광이 들어와요. 벽에는 폭 12 mm짜리 바늘구멍뿐이에요. <b>볼록렌즈</b>로 빛을 모아 대부분이 구멍을 통과하게 하세요.',
+      brief: '넓은 초록빛의 대부분을 폭 12 mm <b>바늘구멍</b>으로 통과시키세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 530, width: 60, rays: 9 }, label: '평행광 530 nm' },
         { type: 'wall', x: 720, y: 157, rot: 0, params: { w: 20, h: 314 } },
@@ -1119,7 +1119,7 @@ const GAME = (() => {
     {
       id: 4, title: '뉴턴식 망원경', tools: '오목거울 · 소형 거울',
       clearTitle: '별빛을 모아 접안구로 보냈어요',
-      brief: '왼쪽에서 넓은 별빛이 들어와요. 센서는 위쪽 벽에 뚫린 폭 16 mm 구멍 너머에 있어요. <b>오목거울</b>로 빛을 모으고, <b>소형 거울</b>로 꺾어 구멍으로 보내세요. 뉴턴이 만든 반사 망원경과 같은 구조예요.',
+      brief: '넓은 별빛을 위쪽 벽의 <b>16 mm 구멍</b> 너머 센서에 모아 보내세요.',
       fixed: [
         { type: 'source', x: 60, y: 420, rot: 0, params: { spectrum: 'white', width: 64, rays: 9 }, label: '별빛' },
         { type: 'wall', x: 346, y: 375, rot: 0, params: { w: 692, h: 14 } },
@@ -1143,7 +1143,7 @@ const GAME = (() => {
     {
       id: 5, title: '빛으로 가득', tools: '오목렌즈 · 평면거울',
       clearTitle: '가는 빛을 넓게 펼쳤어요',
-      brief: '가는 주황빛으로 긴 센서 전체를 비춰야 해요. <b>오목렌즈</b>로 빛을 퍼뜨려 센서 길이의 70% 이상을 비추되, 빛의 75% 이상은 센서에 닿아야 해요.',
+      brief: '긴 센서의 <b>70% 이상</b>을 주황빛으로 비추세요. 빛의 75% 이상은 센서에 닿아야 해요.',
       fixed: [
         { type: 'source', x: 200, y: 590, rot: 270, params: { spectrum: 'mono', lambda: 610, width: 20, rays: 9 }, label: '레이저 610 nm' },
         { type: 'sensor', x: 955, y: 180, rot: 0, params: { len: 120 }, label: '긴 센서',
@@ -1164,7 +1164,7 @@ const GAME = (() => {
     {
       id: 6, title: '두 센서 한 번에', tools: '볼록거울',
       clearTitle: '빛 하나로 두 센서를 켰어요',
-      brief: '레이저는 하나인데 센서는 위아래로 둘이에요. <b>볼록거울</b>은 빛을 되돌려 보내면서 넓게 퍼뜨려요. 두 센서 모두에 빛 2줄 이상을 보내세요.',
+      brief: '레이저 하나로 위아래 <b>두 센서 모두</b>에 빛 2줄 이상을 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 500, width: 56, rays: 9 }, label: '레이저 500 nm' },
         { type: 'sensor', x: 230, y: 130, rot: 180, params: { len: 110 }, label: '센서 A',
@@ -1183,7 +1183,7 @@ const GAME = (() => {
     {
       id: 7, title: '거울 없이', tools: '프리즘 2개',
       clearTitle: '거울 없이 빛을 되돌려 보냈어요',
-      brief: '이번엔 거울이 없어요. 보라 레이저를 벽 아래쪽 센서로 되돌려 보내야 해요. <b>프리즘</b>은 빛을 굴절시킬 뿐 아니라, 각도가 맞으면 안쪽 면에서 <b>전반사</b>해 거울처럼 빛을 크게 꺾어요.',
+      brief: '거울 없이, 보라 레이저를 벽 아래쪽 센서로 되돌려 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 140, rot: 0, params: { spectrum: 'mono', lambda: 420 }, label: '레이저 420 nm' },
         { type: 'wall', x: 360, y: 320, rot: 0, params: { w: 720, h: 20 } },
@@ -1204,7 +1204,7 @@ const GAME = (() => {
     {
       id: 8, title: '빨강과 초록 나누기', tools: '프리즘 · 평면거울 · 슬릿 2개',
       clearTitle: '한 줄기 빛을 두 색으로 나눠 보냈어요',
-      brief: '무지개를 두 갈래로 나눠야 해요. <b>빨강(625–700 nm)</b>은 아래쪽 센서로, <b>초록(500–565 nm)</b>은 왼쪽 센서로 보내세요. 거울 끝 모서리를 부채꼴 한가운데에 대면 일부 색만 반사돼요.',
+      brief: '<b>빨강(625–700 nm)</b>은 아래 센서로, <b>초록(500–565 nm)</b>은 왼쪽 센서로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 110, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'sensor', x: 866, y: 615, rot: 90, params: { len: 70 }, label: '빨강 센서',
@@ -1233,7 +1233,7 @@ const GAME = (() => {
     {
       id: 9, title: '다시 백색광', tools: '볼록렌즈',
       clearTitle: '무지개를 다시 백색광으로 모았어요',
-      brief: '고정된 프리즘이 백색광을 무지개로 흩어 놓았어요. <b>볼록렌즈</b>로 흩어진 색을 바늘구멍 한 점에 다시 모아, 여섯 색이 모두 센서에 들어가게 하세요. 뉴턴이 백색광이 여러 색의 혼합임을 보인 실험이에요.',
+      brief: '흩어진 무지개의 <b>여섯 색 모두</b>를 바늘구멍 센서에 다시 모으세요.',
       fixed: [
         { type: 'source', x: 60, y: 100, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'prism', x: 180, y: 100, rot: 22 },
@@ -1253,7 +1253,7 @@ const GAME = (() => {
     {
       id: 10, title: '빔 확장기', tools: '오목렌즈 · 볼록렌즈',
       clearTitle: '가는 빛을 굵은 평행광으로 넓혔어요',
-      brief: '가는 레이저를 <b>세 배 굵기의 평행광</b>으로 넓혀야 해요. 센서 길이의 60% 이상을 비추고, 광선들이 1° 안쪽으로 나란해야 해요. 렌즈 하나로는 퍼지거나 모이기만 하니, <b>두 렌즈</b>를 함께 쓰세요.',
+      brief: '가는 레이저를 <b>세 배 굵기의 평행광</b>으로 넓혀 센서 길이의 60% 이상을 비추세요. 광선은 1° 안쪽으로 나란해야 해요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
         { type: 'sensor', x: 940, y: 320, rot: 0, params: { len: 80 }, label: '센서',
@@ -1273,7 +1273,7 @@ const GAME = (() => {
     {
       id: 11, title: '보라 레이저 포인터', tools: '프리즘 · 슬릿 · 볼록렌즈',
       clearTitle: '보라빛만 골라 한 점에 모았어요',
-      brief: '백색광에서 <b>보라빛(400–445 nm)</b>만 골라, 비스듬한 벽에 뚫린 바늘구멍 한 점에 모아 보내세요. 색을 고르는 도구와 빛을 모으는 도구가 모두 필요해요.',
+      brief: '백색광에서 <b>보라빛(400–445 nm)</b>만 골라 비스듬한 벽의 바늘구멍에 모아 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         ...pinhole(616, 590, 51, 12),
@@ -1297,7 +1297,7 @@ const GAME = (() => {
     {
       id: 12, title: '빛의 삼원색', tools: '볼록렌즈 · 평면거울',
       clearTitle: '세 가지 색을 한 점에 모아 흰빛을 만들었어요',
-      brief: '<b>빨강 · 초록 · 파랑</b> 레이저 세 줄기를 위쪽 바늘구멍 하나로 모두 보내세요. 세 색이 한 점에서 겹치면 센서에 흰빛이 맺혀요.',
+      brief: '빨강·초록·파랑 레이저 <b>세 줄기 모두</b>를 위쪽 바늘구멍으로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 425, rot: 0, params: { spectrum: 'mono', lambda: 650 }, label: '레이저 650 · 530 · 460 nm' },
         { type: 'source', x: 70, y: 460, rot: 0, params: { spectrum: 'mono', lambda: 530 } },
@@ -1323,7 +1323,7 @@ const GAME = (() => {
     {
       id: 13, title: '분광기', tools: '큰 프리즘 · 오목거울',
       clearTitle: '분광기로 초록빛을 골라냈어요',
-      brief: '넓은 백색광은 프리즘을 지나도 색끼리 겹쳐요. <b>오목거울</b>로 색마다 다른 점에 초점을 맺게 하면 무지개가 선명하게 펼쳐져요. 바늘구멍에 <b>초록(500–565 nm)</b>이 맺히게 하세요. 실제 분광기의 원리예요.',
+      brief: '넓은 백색광에서 <b>초록(500–565 nm)</b>만 바늘구멍 센서에 맺히게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 110, rot: 0, params: { spectrum: 'white', width: 36, rays: 5 }, label: '백색 평행광' },
         ...pinhole(341, 417, -172.7, 12, 60),
@@ -1347,7 +1347,7 @@ const GAME = (() => {
     {
       id: 14, title: '분산 되돌리기', tools: '프리즘 · 평면거울',
       clearTitle: '흩어진 무지개를 다시 한 줄기 흰빛으로 되돌렸어요',
-      brief: '고정된 프리즘이 백색광을 흩어 놓았어요. 아래쪽 두 겹의 바늘구멍은 나란히 겹친 흰빛만 통과시켜요. <b>프리즘 하나를 거꾸로</b> 두어 분산을 되돌린 뒤 <b>거울</b>로 구멍에 보내세요.',
+      brief: '흩어진 무지개를 다시 <b>흰빛</b>으로 합쳐 아래쪽 두 겹 바늘구멍을 통과시키세요.',
       fixed: [
         { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'prism', x: 200, y: 120, rot: 22 },
@@ -1369,7 +1369,7 @@ const GAME = (() => {
     {
       id: 15, title: '반사식 빔 확장기', tools: '볼록거울 · 오목거울',
       clearTitle: '거울만으로 빛을 넓혔어요',
-      brief: '스테이지 10을 렌즈 없이 <b>거울 두 개</b>로 풀어 보세요. 가는 레이저를 넓은 평행광으로 만들어 오른쪽 센서에 보내야 해요. 큰 망원경이 렌즈 대신 거울을 쓰는 것과 같은 방식이에요.',
+      brief: '렌즈 없이, 가는 레이저를 <b>넓은 평행광</b>으로 만들어 오른쪽 센서에 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 520, width: 20, rays: 5 }, label: '레이저 520 nm' },
         { type: 'sensor', x: 950, y: 270, rot: 0, params: { len: 80 }, label: '센서',
@@ -1389,7 +1389,7 @@ const GAME = (() => {
     {
       id: 16, title: '무지개 넓히기', tools: '프리즘 · 볼록거울',
       clearTitle: '무지개를 넓혀 세 색을 각자 자리로 보냈어요',
-      brief: '천장의 세 센서가 각각 <b>파랑 · 초록 · 빨강</b>만 받아야 해요. 프리즘 하나로 만든 무지개는 너무 좁아요. <b>볼록거울</b>로 부채꼴을 크게 벌려 보세요.',
+      brief: '천장의 세 센서에 각각 <b>파랑 · 초록 · 빨강</b>만 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'sensor', x: 425, y: 24, rot: 270, params: { len: 60 }, label: '파랑',
@@ -1413,7 +1413,7 @@ const GAME = (() => {
     {
       id: 17, title: '손전등 평행광', tools: '볼록렌즈 · 평면거울',
       clearTitle: '퍼지는 빛을 나란한 빛줄기로 만들었어요',
-      brief: '점광원은 빛을 부채꼴로 퍼뜨려요. 멀리 있는 작은 센서에 빛을 거의 다 보내려면 퍼지는 빛을 <b>나란하게</b> 만든 다음 방향을 바꿔야 해요. 손전등과 등대의 원리예요.',
+      brief: '점광원의 빛을 멀리 있는 작은 센서에 <b>거의 다</b> 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 520, rot: 0, params: { spectrum: 'mono', lambda: 585, fan: 24, rays: 9 }, label: '점광원 585 nm' },
         { type: 'sensor', x: 600, y: 30, rot: 270, params: { len: 70 }, label: '먼 센서',
@@ -1432,7 +1432,7 @@ const GAME = (() => {
     {
       id: 18, title: '케플러 망원경', tools: '대물렌즈 · 접안렌즈 · 평면거울',
       clearTitle: '두 볼록렌즈로 빛을 가늘게 모았어요',
-      brief: '넓은 평행광을 <b>세 배 가늘게</b> 줄여 위쪽 창(폭 44 mm)으로 통과시키고, 센서에는 나란한 빛으로 닿게 하세요. 볼록렌즈 두 개로 만드는 케플러식 망원경이에요.',
+      brief: '넓은 평행광을 <b>세 배 가늘게</b> 줄여 위쪽 창(폭 44 mm)을 지나 센서에 나란히 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 400, rot: 0, params: { spectrum: 'mono', lambda: 470, width: 60, rays: 7 }, label: '평행광 470 nm' },
         ...pinhole(640, 230, -90, 44, 150, 14),
@@ -1458,7 +1458,7 @@ const GAME = (() => {
     {
       id: 19, title: '전반사 초점', tools: '프리즘 · 볼록렌즈',
       clearTitle: '거울 없이 꺾고 렌즈로 모았어요',
-      brief: '쌍안경 속 프리즘처럼 <b>프리즘의 전반사</b>로 넓은 빨간빛을 아래로 꺾고, <b>볼록렌즈</b>로 모아 아래쪽 바늘구멍에 보내세요. 이번에도 거울은 없어요.',
+      brief: '거울 없이, 넓은 빨간빛을 아래쪽 바늘구멍 한 점에 모으세요.',
       fixed: [
         { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 640, width: 40, rays: 5 }, label: '레이저 640 nm' },
         ...pinhole(632, 470, 90, 10),
@@ -1477,7 +1477,7 @@ const GAME = (() => {
     {
       id: 20, title: '두 실험 동시에', tools: '프리즘 · 슬릿 · 볼록렌즈 · 평면거울 2개',
       clearTitle: '두 실험을 한 실험대에서 끝냈어요',
-      brief: '광원도 둘, 센서도 둘이에요. 백색광에서는 <b>파랑만</b> 골라 왼쪽 센서로, 초록 레이저는 <b>오른쪽 위 바늘구멍</b>으로 모아 보내세요. 한쪽을 위해 놓은 부품이 다른 쪽 빛을 가리지 않게 배치하세요.',
+      brief: '백색광에서 <b>파랑</b>만 왼쪽 센서로, 초록 레이저는 오른쪽 위 바늘구멍으로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 80, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         { type: 'source', x: 70, y: 560, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 50, rays: 5 }, label: '레이저 532 nm' },
@@ -1504,7 +1504,7 @@ const GAME = (() => {
     {
       id: 21, title: '프리즘 하나로 두 번', tools: '프리즘 · 평면거울 · 볼록렌즈',
       clearTitle: '프리즘 하나에 빛을 두 번 통과시켜 순수한 빨강을 얻었어요',
-      brief: '벽 너머 작은 바늘구멍(12 mm) 뒤 센서에 <b>빨간빛(625–700 nm)</b>만, 아주 높은 순도로 보내세요. 가진 프리즘은 하나뿐이에요.',
+      brief: '벽 너머 바늘구멍 센서에 <b>빨간빛(625–700 nm)</b>만 높은 순도로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
         ...pinhole(138.4, 30, 231.2, 12),
@@ -1524,7 +1524,7 @@ const GAME = (() => {
     {
       id: 22, title: '없는 색의 필터', tools: '차단 필터 2개 · 평면거울',
       clearTitle: '차단 필터 두 장을 겹쳐 노랑·주황만 남겼어요',
-      brief: '센서에 <b>노랑·주황빛(570–620 nm)</b>만 보내세요. 부품함에 그 색을 통과시키는 필터는 없어요.',
+      brief: '센서에 <b>노랑·주황빛(570–620 nm)</b>만 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 20, rays: 7 }, label: '백색광' },
         { type: 'sensor', x: 500, y: 80, rot: 270, params: { len: 80 }, label: '센서',
@@ -1548,7 +1548,7 @@ const GAME = (() => {
     {
       id: 23, title: '거울 없이 되돌리기', tools: '빔스플리터 · 직각 프리즘 · 볼록렌즈',
       clearTitle: '직각 프리즘의 두 번 전반사로 빛을 되돌려 보냈어요',
-      brief: '레이저를 둘로 나눠, 한쪽은 위쪽 센서로, 다른 쪽은 <b>광원 옆 왼쪽 센서</b>로 되돌려 보내세요. 이번엔 거울이 없어요.',
+      brief: '거울 없이, 레이저를 둘로 나눠 위쪽 센서와 광원 옆 왼쪽 센서에 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 300, rot: 0, params: { spectrum: 'mono', lambda: 550, width: 24, rays: 5 }, label: '레이저 550 nm' },
         { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '위 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
@@ -1570,7 +1570,7 @@ const GAME = (() => {
     {
       id: 24, title: '임계각', tools: '직각 프리즘 · 평면거울 · 볼록렌즈',
       clearTitle: '전반사의 임계각으로 색을 갈랐어요',
-      brief: '백색광에서 <b>보라빛</b>은 왼쪽 아래 바늘구멍 센서로, <b>빨간빛</b>은 오른쪽 아래 센서로 보내세요. 색 필터도 분산 프리즘도 없어요.',
+      brief: '필터도 분산 프리즘도 없이, <b>보라</b>는 왼쪽 아래 바늘구멍 센서로, <b>빨강</b>은 오른쪽 아래 센서로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 24, rays: 7 }, label: '백색광' },
         ...pinhole(140, 560, 180, 10, 60),
@@ -1593,7 +1593,7 @@ const GAME = (() => {
     {
       id: 25, title: '너무 작은 필터', tools: '볼록렌즈 · 작은 색 필터 · 평면거울',
       clearTitle: '빛을 한 점에 모아 작은 필터를 통과시켰어요',
-      brief: '넓은 백색광에서 <b>파란빛(450–495 nm)</b>만 위쪽 센서로 보내세요. 필터는 빛줄기보다 훨씬 작아요.',
+      brief: '넓은 백색광에서 <b>파란빛(450–495 nm)</b>만 위쪽 센서로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 40, rays: 9 }, label: '백색광' },
         { type: 'sensor', x: 600, y: 100, rot: 270, params: { len: 120 }, label: '센서',
@@ -1615,7 +1615,7 @@ const GAME = (() => {
     {
       id: 26, title: '장애물을 피해서', tools: '평면거울 3개',
       clearTitle: '벽을 피해 거울 세 번으로 빛을 보냈어요',
-      brief: '가운데 가로막은 벽을 피해, 거울만으로 빛을 반대편 센서까지 보내세요.',
+      brief: '가운데 벽을 피해, 거울만으로 반대편 센서에 빛을 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 16, rays: 5 }, label: '백색광' },
         { type: 'wall', x: 500, y: 400, rot: 0, params: { w: 20, h: 300 }, label: '가로막' },
@@ -1636,7 +1636,7 @@ const GAME = (() => {
     {
       id: 27, title: '한 장으로 두 갈래', tools: '색 필터 · 빔스플리터 · 직각 프리즘 · 볼록렌즈',
       clearTitle: '갈라지기 전에 거르고, 전반사로 되돌려 보냈어요',
-      brief: '백색광에서 <b>초록빛(500–565 nm)</b>만 남겨 위쪽 센서와 <b>광원 옆 왼쪽 센서</b> 둘 다에 보내세요. 필터는 한 장, 거울은 없어요.',
+      brief: '필터 한 장으로 <b>초록빛(500–565 nm)</b>만 위쪽 센서와 광원 옆 왼쪽 센서 둘 다에 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 300, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
         { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '위 센서',
@@ -1661,7 +1661,7 @@ const GAME = (() => {
     {
       id: 28, title: '백색은 그대로, 초록은 둘로', tools: '빔스플리터 · 색 필터 · 평면거울 · 볼록렌즈',
       clearTitle: '두 빛이 만나는 자리에 필터 한 장을 세웠어요',
-      brief: '위쪽 백색광은 일부를 <b>흰빛 그대로</b> 오른쪽 위 센서에 보내고, 나머지와 아래쪽 백색광에서는 <b>초록빛(500–565 nm)</b>만 남겨 두 초록 센서에 각각 보내세요. 필터는 한 장뿐이에요.',
+      brief: '오른쪽 위 센서에는 <b>흰빛 그대로</b>, 두 초록 센서에는 <b>초록빛(500–565 nm)</b>만 보내세요. 필터는 한 장이에요.',
       fixed: [
         { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'white', width: 20, rays: 5 }, label: '백색광 A' },
         { type: 'source', x: 70, y: 440, rot: 0, params: { spectrum: 'white', width: 20, rays: 5 }, label: '백색광 B' },
@@ -1687,7 +1687,7 @@ const GAME = (() => {
     {
       id: 29, title: '세 갈래 분광', tools: '빔스플리터 · 차단 필터 · 직각 프리즘 · 평면거울 · 볼록렌즈',
       clearTitle: '빗각 스플리터와 임계각으로 빛을 세 갈래로 갈랐어요',
-      brief: '백색광을 세 센서로 나누세요. 왼쪽 위 센서는 <b>빨강 없이</b>, 아래 바늘구멍 센서는 <b>보라만</b>, 오른쪽 아래 센서는 <b>빨강만</b> 받아야 해요. 분산 프리즘은 없어요.',
+      brief: '왼쪽 위 센서는 <b>빨강 없이</b>, 아래 바늘구멍 센서는 <b>보라만</b>, 오른쪽 아래 센서는 <b>빨강만</b> 받게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 24, rays: 7 }, label: '백색광' },
         { type: 'sensor', x: 180, y: 60, rot: 240, params: { len: 90 }, label: '왼쪽 위 센서',
@@ -1714,7 +1714,7 @@ const GAME = (() => {
     {
       id: 30, title: '광학 실험실 종합', tools: '빔스플리터 · 차단 필터 2개 · 직각 프리즘 · 볼록렌즈 · 작은 색 필터',
       clearTitle: '나누고, 겹쳐 거르고, 되돌려서, 초점에서 걸렀어요',
-      brief: '백색광을 둘로 나눠, 한쪽은 <b>노랑·주황빛(570–620 nm)</b>만 위쪽 센서로, 다른 쪽은 <b>초록빛(500–565 nm)</b>만 <b>광원 옆 왼쪽 센서</b>로 되돌려 보내세요. 거울은 없어요.',
+      brief: '거울 없이, 위쪽 센서에 <b>노랑·주황(570–620 nm)</b>만, 광원 옆 왼쪽 센서에 <b>초록(500–565 nm)</b>만 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 320, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
         { type: 'sensor', x: 400, y: 80, rot: 270, params: { len: 80 }, label: '위 센서',
@@ -1746,7 +1746,7 @@ const GAME = (() => {
     {
       id: 31, title: '종이를 태워라', tools: '평면거울 · 볼록렌즈',
       clearTitle: '빛을 한 점에 모아 종이를 태웠어요',
-      brief: '종이 위에 쇠구슬이 놓여 있어요. 레이저를 종이 위 <b>한 점에 모아</b> 종이를 태우면 구슬이 떨어져 아래 <b>로드셀</b>에 닿아요.',
+      brief: '종이를 태워 쇠구슬을 아래 <b>로드셀</b>에 떨어뜨리세요.',
       fixed: [
         { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 30, rays: 7 }, label: '레이저 650 nm' },
         { type: 'wall', x: 538.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
@@ -1769,7 +1769,7 @@ const GAME = (() => {
     {
       id: 32, title: '두 장의 종이', tools: '빔스플리터 · 평면거울 · 볼록렌즈 2개 · 판자',
       clearTitle: '빛을 둘로 나눠 두 종이를 함께 태웠어요',
-      brief: '구슬 밑의 종이와, 로드셀 위를 가로지르는 <b>종이 다리</b>를 모두 태워야 구슬이 로드셀에 닿아요. 레이저는 하나뿐이에요.',
+      brief: '두 종이를 모두 태워 구슬을 <b>로드셀</b>에 닿게 하세요. 레이저는 하나뿐이에요.',
       fixed: [
         { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
         { type: 'wall', x: 538.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
@@ -1798,7 +1798,7 @@ const GAME = (() => {
     {
       id: 33, title: '구슬이 가린 센서', tools: '빔스플리터 · 평면거울 2개 · 볼록렌즈 · 판자',
       clearTitle: '구슬이 비키자 가려졌던 센서가 빛을 받았어요',
-      brief: '레이저 바로 앞에 쇠구슬이 놓여 센서를 가리고 있어요. 빛의 절반을 돌려 종이를 태워 구슬을 치우면, 나머지 절반이 센서에 닿아요. 떨어진 구슬로는 <b>진자</b>를 쳐서 추가 로드셀에 닿게 하세요.',
+      brief: '구슬에 가려진 센서를 켜고, 떨어진 구슬로 진자를 쳐 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 318, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 16, rays: 5 }, label: '레이저 532 nm' },
         { type: 'sensor', x: 700, y: 318, rot: 0, params: { len: 80 }, label: '가려진 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
@@ -1826,7 +1826,7 @@ const GAME = (() => {
     {
       id: 34, title: '프리즘 위를 지나서', tools: '직각 프리즘 · 평면거울 · 볼록렌즈 · 판자',
       clearTitle: '빛을 꺾는 프리즘이 구슬도 꺾었어요',
-      brief: '빨간 레이저는 아래 센서로, 초록 레이저로는 종이를 태우세요. 구슬은 오른쪽 받침대 위 로드셀에 올라가야 해요. <b>빛을 꺾는 부품은 구슬도 튕겨 내요.</b>',
+      brief: '빨간 레이저는 아래 센서로, 구슬은 오른쪽 받침대 위 <b>로드셀</b>로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 400, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 20, rays: 5 }, label: '레이저 650 nm' },
         { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
@@ -1854,7 +1854,7 @@ const GAME = (() => {
     {
       id: 35, title: '빨간 종이는 빨강을 반사해요', tools: '평면거울 · 볼록렌즈 · 판자',
       clearTitle: '종이 색에 맞는 빛을 골라 태웠어요',
-      brief: '빨간 레이저는 오른쪽 센서로 보내세요. 종이는 <b>빨간색</b>이라 빨간빛을 반사해 데워지지 않아요. 구슬은 왼쪽 아래 로드셀로.',
+      brief: '빨간 레이저는 오른쪽 센서로, 구슬은 왼쪽 아래 <b>로드셀</b>로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
         { type: 'source', x: 70, y: 450, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
@@ -1881,7 +1881,7 @@ const GAME = (() => {
     {
       id: 36, title: '무거운 추에 튕겨서', tools: '빔스플리터 · 평면거울 · 볼록렌즈 2개 · 판자',
       clearTitle: '무거운 추에 부딪힌 구슬이 되돌아왔어요',
-      brief: '구슬로 오른쪽의 <b>무거운 진자</b>를 쳐야 해요. 되튕긴 구슬이 바닥을 굴러 왼쪽 <b>종이 다리</b> 자리로 떨어지도록, 다리도 미리 태워 두세요.',
+      brief: '구슬로 <b>무거운 진자</b>를 친 뒤, 왼쪽 바닥의 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
         { type: 'wall', x: 538.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
@@ -1912,7 +1912,7 @@ const GAME = (() => {
     {
       id: 37, title: '구슬이 구슬을', tools: '빔스플리터 · 평면거울 2개 · 볼록렌즈 · 판자',
       clearTitle: '멈춰 있던 구슬에 운동량을 넘겼어요',
-      brief: '구슬이 레이저와 센서 사이를 막고 있어요. 빛의 절반으로 종이를 태워 구슬을 치우고, 떨어진 구슬로 바닥의 <b>구슬 B</b>를 쳐서 오른쪽 구덩이의 로드셀에 떨어뜨리세요.',
+      brief: '가려진 센서를 켜고, 구슬 B를 오른쪽 구덩이의 <b>로드셀</b>에 떨어뜨리세요.',
       fixed: [
         { type: 'source', x: 70, y: 318, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
         { type: 'sensor', x: 720, y: 318, rot: 0, params: { len: 60 }, label: '가려진 센서', goal: { checks: [{ kind: 'power', min: 0.35 }] } },
@@ -1942,7 +1942,7 @@ const GAME = (() => {
     {
       id: 38, title: '살살 내려놓기', tools: '빔스플리터 · 평면거울 2개 · 볼록렌즈 2개 · 긴 판자',
       clearTitle: '무거운 구슬에 운동량을 나눠 주어 천천히 닿게 했어요',
-      brief: '바닥에 묻힌 이 로드셀은 약해서 <b>400 mm/s</b>보다 빠르게 부딪히면 고장 나요. 떨어진 구슬이 직접 닿으면 너무 빨라요. 바닥의 무거운 <b>납 구슬</b>을 밀어 대신 굴러가게 하고, 그 앞을 막은 <b>종이 문</b>도 태워 두세요.',
+      brief: '바닥에 묻힌 약한 로드셀에 <b>400 mm/s보다 느리게</b> 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
         { type: 'wall', x: 368, y: 345, rot: 0, params: { w: 14, h: 30 } },
@@ -1976,7 +1976,7 @@ const GAME = (() => {
     {
       id: 39, title: '기둥 돌아가기', tools: '빔스플리터 · 평면거울 · 볼록렌즈 2개 · 판자 2개',
       clearTitle: '판자 두 장으로 구슬 길을 만들고, 두 종이를 태웠어요',
-      brief: '구슬 바로 아래에 기둥이 서 있고, 로드셀은 왼쪽 바닥의 <b>종이 다리</b> 밑에 있어요. 빛을 나눠 두 종이를 모두 태우고, 판자 두 장으로 구슬을 기둥 너머로 돌려 보내세요.',
+      brief: '구슬을 기둥 너머 왼쪽 바닥의 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
         { type: 'wall', x: 538.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
@@ -2008,7 +2008,7 @@ const GAME = (() => {
     {
       id: 40, title: '물리 실험실 종합', tools: '빔스플리터 · 색 필터 · 직각 프리즘 · 평면거울 2개 · 볼록렌즈 · 판자',
       clearTitle: '빛을 나누어 종이를 태우고, 비켜난 구슬 뒤로 되돌아온 초록빛이 센서에 닿았어요',
-      brief: '백색광을 둘로 나누세요. 한쪽으로는 <b>초록 종이</b>를 태워 구슬을 떨어뜨리고, 다른 쪽은 거울 없이 되돌려 그 구슬이 가리고 있던 <b>왼쪽 센서</b>에 <b>초록빛만</b> 보내세요. 떨어진 구슬로는 진자를 쳐서 추가 로드셀에 닿게 하세요.',
+      brief: '구슬이 가린 왼쪽 센서에 <b>초록빛만</b> 보내고, 구슬로 진자를 쳐 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
         { type: 'source', x: 70, y: 250, rot: 0, params: { spectrum: 'white', width: 24, rays: 5 }, label: '백색광' },
         { type: 'sensor', x: 150, y: 325, rot: 180, params: { len: 60 }, label: '가려진 센서', goal: { checks: [{ kind: 'band', name: '초록', band: [500, 565], min: 0.35 }, { kind: 'purity', name: '초록', band: [500, 565], min: 0.9 }] } },
