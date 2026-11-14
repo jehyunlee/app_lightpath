@@ -409,7 +409,7 @@ html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
       <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
       <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
-      <span class="prog mono" id="progress">0 / 45 클리어</span>
+      <span class="prog mono" id="progress">0 / 46 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
       <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2149,30 +2149,30 @@ const GAME = (() => {
       brief: '아래쪽 구슬을 <b>로드셀</b>에 떨어뜨리세요.',
       fixed: [
         { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
-        // 지레: 수평에서 시작해 오른팔이 40°까지 내려간다. 왼팔이 올라가면 그 아래로 빛이 지나갈 틈이 생긴다
+        // 지레: 수평에서 시작해 오른팔이 40°까지 내려간다
         { type: 'lever', x: 600, y: 430, rot: 0, params: { l1: 150, l2: 150, th: 8, m: 2, amin: 0, amax: 40 }, label: '지레' },
         // 위 선반 (오른쪽 멀리) + 구슬 1
         { type: 'wall', x: 775, y: 336, rot: 0, params: { w: 14, h: 30 } },
         { type: 'wall', x: 885, y: 336, rot: 0, params: { w: 14, h: 30 } },
         { type: 'paper', x: 830, y: 319.5, rot: 0, params: { w: 96, need: 0.45 }, label: '위 종이' },
         { type: 'ball', x: 855, y: 306, rot: 0, params: { r: 12 } },
-        // 아래 선반 (왼팔 밑) + 구슬 2 + 로드셀
-        { type: 'wall', x: 415, y: 566, rot: 0, params: { w: 14, h: 30 } },
-        { type: 'wall', x: 525, y: 566, rot: 0, params: { w: 14, h: 30 } },
-        { type: 'paper', x: 470, y: 549.5, rot: 0, params: { w: 96, need: 0.45 }, label: '아래 종이' },
-        { type: 'ball', x: 496, y: 536, rot: 0, params: { r: 12 } },
-        { type: 'loadcell', x: 470, y: 600, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        // 우물: 왼쪽 벽(지레 왼팔 끝과 5 mm 틈)·오른쪽 벽이 바닥까지 내려와 입구가 위쪽뿐이다. 수평 지레가 입구(445~538)를 덮는다
+        { type: 'wall', x: 438, y: 375, rot: 0, params: { w: 14, h: 470 } },
+        { type: 'wall', x: 545, y: 523, rot: 0, params: { w: 14, h: 174 } },
+        { type: 'paper', x: 491.5, y: 549.5, rot: 0, params: { w: 93, need: 0.45 }, label: '아래 종이' },
+        { type: 'ball', x: 524, y: 536, rot: 0, params: { r: 12 } },
+        { type: 'loadcell', x: 491.5, y: 600, rot: 0, params: { w: 80 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
         { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
       ],
       inventory: { splitter: 1, mirror: 1, lensConvex: 2, plank: 1 },
       partParams: { lensConvex: { f: 100, h: 40 } },
       hints: [
-        '지레 막대는 빛을 막아요. 왼팔 아래 종이로 가는 빛은 지레가 기울어 왼팔이 들려야 지나가요. 위 구슬을 오른팔에 실어 지레를 기울이세요.',
-        '스플리터에서 아래로 꺾인 빛은 지레 왼팔 끝 바깥쪽을 지나게 두고, 통과한 빛은 거울로 꺾어 위 종이에 렌즈로 모으세요. 판자로 위 구슬을 오른팔 끝에 올리면 돼요.',
+        '아래 종이는 좁은 우물 바닥에 있어서 바로 위에서 내려오는 빛만 닿는데, 그 입구를 지레 왼팔이 덮고 있어요. 지레 막대는 빛을 막으니 위 구슬을 오른팔에 실어 지레를 기울여야 입구가 열려요.',
+        '스플리터에서 아래로 꺾인 빛은 우물 왼쪽 벽에 바싹 붙여 내려보내고, 통과한 빛은 거울로 꺾어 위 종이에 렌즈로 모으세요. 판자로 위 구슬을 오른팔 끝에 올리면 왼팔이 들리고, 우물 안 렌즈가 빛을 종이에 모아요.',
       ],
       solution: [
         { type: 'splitter', x: 470, y: 120, rot: 315 },
-        { type: 'lensConvex', x: 470, y: 450, rot: 90 },
+        { type: 'lensConvex', x: 491.5, y: 450, rot: 90 },
         { type: 'mirror', x: 830, y: 120, rot: 315 },
         { type: 'lensConvex', x: 830, y: 220, rot: 90 },
         { type: 'plank', x: 805, y: 395, rot: -18 },
@@ -2263,6 +2263,38 @@ const GAME = (() => {
         { type: 'mirror', x: 900, y: 520, rot: 45 },
         { type: 'lensConvex', x: 820, y: 520, rot: 0 },
         { type: 'plank', x: 330, y: 500, rot: 20 },
+      ],
+    },
+    {
+      id: 46, title: '무지개 두 갈래', tools: '프리즘 · 볼록렌즈 · 판자',
+      clearTitle: '색을 골라 두 종이를 태웠어요',
+      brief: '무지개를 색깔별로 나눠 종이 두 장을 태우고, 구슬을 구덩이 너머로 날려 <b>진자</b>를 크게 흔드세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'white' }, label: '백색광' },
+        // 빨간 종이 선반 (빨강은 반사 → 파랑·초록 빛으로만 탄다) + 구슬
+        { type: 'wall', x: 335, y: 266, rot: 0, params: { w: 10, h: 30 } },
+        { type: 'wall', x: 409, y: 266, rot: 0, params: { w: 10, h: 30 } },
+        { type: 'paper', x: 372, y: 249.5, rot: 0, params: { w: 64, need: 0.2, reflect: [625, 700] }, label: '빨간 종이' },
+        { type: 'ball', x: 346, y: 236, rot: 0, params: { r: 12 } },
+        // 파란 종이 문 (파랑은 반사 → 빨강·노랑 빛으로 탄다)
+        { type: 'paper', x: 700, y: 476, rot: 90, params: { w: 80, need: 0.3, reflect: [400, 490] }, label: '파란 종이' },
+        // 진자
+        { type: 'pendulum', x: 860, y: 300, rot: 0, params: { L: 200, r: 12, m: 1 }, label: '진자', goal: { checks: [{ kind: 'struck' }, { kind: 'swing', min: 25 }] } },
+        // 바닥: 가운데 구덩이(560~640)
+        { type: 'wall', x: 280, y: 522, rot: 0, params: { w: 560, h: 12 } },
+        { type: 'wall', x: 820, y: 522, rot: 0, params: { w: 360, h: 12 } },
+        { type: 'wall', x: 600, y: 606, rot: 0, params: { w: 80, h: 12 }, label: '구덩이' },
+      ],
+      inventory: { prism: 1, lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '종이는 제 색과 같은 빛을 반사해서 그 빛으로는 타지 않아요. 빨간 종이는 무지개의 파란 쪽을, 파란 종이는 빨간 쪽을 받아야 해요. 프리즘은 보라를 가장 많이 꺾어요.',
+        '프리즘을 광원 바로 앞에 22° 정도 기울여 무지개를 오른쪽 아래로 펼치면, 가파른 파란 빛은 선반에, 완만한 빨간 빛은 멀리 문 쪽으로 가요. 문 앞에 렌즈를 두어 퍼진 빨간 빛을 다시 모으되, 렌즈가 구슬 길을 막지 않게 하세요. 판자는 35° 정도 가파르게 두어야 구슬이 구덩이를 건너뛰고도 진자를 세게 쳐요.',
+      ],
+      solution: [
+        { type: 'prism', x: 300, y: 150, rot: 22 },
+        { type: 'lensConvex', x: 600, y: 400, rot: 45 },
+        { type: 'plank', x: 360, y: 370, rot: 35 },
       ],
     },
   ];
