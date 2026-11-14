@@ -409,7 +409,7 @@ html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
       <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
       <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
-      <span class="prog mono" id="progress">0 / 43 클리어</span>
+      <span class="prog mono" id="progress">0 / 44 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
       <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2178,6 +2178,49 @@ const GAME = (() => {
         { type: 'plank', x: 805, y: 395, rot: -18 },
       ],
     },
+    {
+      id: 44, title: '턱 없는 다리', tools: '빔스플리터 · 평면거울 · 볼록렌즈 2개 · 판자',
+      clearTitle: '턱 없이 이어진 길로 속도를 지켜 되돌아왔어요',
+      brief: '구슬을 가운데 선반 위 <b>로드셀</b>에 올리세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 40, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 선반 + 구슬: 구슬은 1/4 파이프 왼쪽 벽 바로 안쪽으로 떨어진다
+        { type: 'wall', x: 140, y: 216, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 250, y: 216, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 195, y: 199.5, rot: 0, params: { w: 110, need: 0.45 }, label: '종이 선반' },
+        { type: 'ball', x: 162, y: 186, rot: 0, params: { r: 12 } },
+        // 1/4 파이프 (떨어지는 구슬을 오른쪽으로 돌린다)
+        { type: 'slide', x: 250, y: 480, rot: 0, params: { R: 100, w: 10, a0: 180, a1: 90 }, label: '받이' },
+        // 바닥: 왼쪽 바닥 · 턱(8 mm 낮은 받침) · 구덩이 · 턱 · 오른쪽 바닥
+        { type: 'wall', x: 297.5, y: 586, rot: 0, params: { w: 95, h: 12 } },
+        { type: 'wall', x: 355, y: 594, rot: 0, params: { w: 20, h: 12 } },
+        { type: 'wall', x: 485, y: 594, rot: 0, params: { w: 20, h: 12 } },
+        { type: 'wall', x: 747.5, y: 586, rot: 0, params: { w: 505, h: 12 } },
+        { type: 'wall', x: 500, y: 660, rot: 0, params: { w: 1000, h: 12 } },
+        // 구덩이 위 낮은 천장: 판자가 떠 있어 생긴 턱에 튄 구슬은 여기 부딪혀 멀리 못 뛴다
+        { type: 'wall', x: 420, y: 544, rot: 0, params: { w: 170, h: 8 }, label: '낮은 천장' },
+        // U턴
+        { type: 'slide', x: 860, y: 500, rot: 0, params: { R: 80, w: 10, a0: -90, a1: 90 }, label: 'U턴' },
+        // 공중 선반 + 로드셀 + 왼쪽 등판 + 종이 뚜껑 (구슬은 선반 밑으로 지나가고, 돌아올 때 위에 내려앉는다)
+        { type: 'wall', x: 630, y: 544, rot: 0, params: { w: 140, h: 8 } },
+        { type: 'loadcell', x: 630, y: 534, rot: 0, params: { w: 130 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 565, y: 492, rot: 0, params: { w: 10, h: 112 }, label: '등판' },
+        { type: 'paper', x: 622, y: 496.5, rot: 0, params: { w: 104, need: 0.45 }, label: '종이 뚜껑' },
+      ],
+      inventory: { splitter: 1, mirror: 1, lensConvex: 2, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '구덩이 양쪽에 판자 두께만큼 낮은 턱이 있어요. 판자를 턱에 꼭 맞게 걸쳐 바닥과 높이가 같아야 구슬이 걸리지 않고 속도를 지켜요. 속도가 있어야 U턴을 다 돌아 선반 높이까지 올라와요.',
+        '스플리터에서 아래로 꺾인 빛은 렌즈로 선반 종이에, 통과한 빛은 거울로 꺾어 종이 뚜껑에 위에서 렌즈로 모으세요. 뚜껑이 남아 있으면 구슬이 로드셀에 닿지 못해요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 215, y: 40, rot: 315 },
+        { type: 'lensConvex', x: 215, y: 100, rot: 90 },
+        { type: 'mirror', x: 630, y: 40, rot: 315 },
+        { type: 'lensConvex', x: 630, y: 396, rot: 90 },
+        { type: 'plank', x: 420, y: 584, rot: 0 },
+      ],
+    },
   ];
 
   /* 진자 판정. q: MECH 시뮬레이션의 진자 상태 { struck:{t,speed}|null, maxSwing(°) }
@@ -3471,11 +3514,21 @@ const MECH = (() => {
      부품은 다른 물체(고정 장치·구슬·다른 부품)와 겹치는 자세로 놓을 수 없다.
      겹치는 조작은 거부하고 이전 자세로 되돌리며, 부품을 잠깐 붉게 표시한다 */
   let blocked = null; // { id, until }
+  // 목표 자세가 막히면 지금 자세와 목표 사이에서 닿기 직전까지만 간다 (턱·받침대에 딱 붙여 놓을 수 있다)
   function tryPose(o, x, y, rot) {
     const px = o.x, py = o.y, pr = o.rot;
+    const ok = () => o.hidden || !MECH.overlaps(o, S.objs);
     o.x = x; o.y = y; o.rot = rot;
-    if (o.hidden || !MECH.overlaps(o, S.objs)) return true;
-    o.x = px; o.y = py; o.rot = pr;
+    if (ok()) return true;
+    let dr = rot - pr; dr = ((dr % 360) + 540) % 360 - 180;
+    const at = t => { o.x = px + (x - px) * t; o.y = py + (y - py) * t; o.rot = normDeg(pr + dr * t); };
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 10; i++) { const mid = (lo + hi) / 2; at(mid); if (ok()) lo = mid; else hi = mid; }
+    at(lo);
+    // 닿는 자리를 깔끔한 값(0.5 mm · 0.5°)으로 맞출 수 있으면 그렇게
+    const sx = o.x, sy = o.y, sr = o.rot;
+    o.x = Math.round(sx * 2) / 2; o.y = Math.round(sy * 2) / 2; o.rot = normDeg(Math.round(sr * 2) / 2);
+    if (!ok()) { o.x = sx; o.y = sy; o.rot = sr; }
     blocked = { id: o.id, until: performance.now() + 350 };
     dirty = true;
     return false;
