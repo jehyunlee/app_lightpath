@@ -54,7 +54,7 @@ button { font: inherit; color: inherit; }
 @supports not (height: 100dvh) { .app { height: 100vh; } }
 
 /* 머리띠: 제목 · ‹ 현재 스테이지 › · 진행 · 자유 실험실 */
-.top { flex: none; display: flex; align-items: center; gap: 8px 14px; min-height: 42px; }
+.top { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-height: 42px; }
 .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; margin-right: auto; }
 .brand h1 { margin: 0; font-family: var(--f-hand); font-weight: 400; font-size: 32px; line-height: 1; color: var(--tape); letter-spacing: 0.01em; white-space: nowrap; }
 .brand p { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -63,7 +63,7 @@ button { font: inherit; color: inherit; }
 .nav-b, .stage-cur, .lab-b { height: 40px; border: 1px solid var(--line); background: #0f1216; border-radius: 6px; cursor: pointer; color: var(--muted); }
 .nav-b { width: 40px; flex: none; font-size: 22px; line-height: 1; padding: 0 0 3px; }
 .nav-b:disabled { opacity: .3; cursor: default; }
-.stage-cur { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: min(44vw, 420px); padding: 0 10px 0 12px; color: var(--ink); font-size: 14px; font-weight: 500; }
+.stage-cur { display: flex; align-items: center; gap: 8px; min-width: 128px; max-width: min(44vw, 420px); padding: 0 10px 0 12px; color: var(--ink); font-size: 14px; font-weight: 500; }
 .stage-cur .mono { color: var(--accent); flex: none; font-size: 13px; }
 .stage-cur .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stage-cur::after { content: "▾"; color: var(--muted); flex: none; font-size: 12px; }
@@ -144,6 +144,9 @@ button { font: inherit; color: inherit; }
   filter: drop-shadow(0 1px 1px rgba(0,0,0,.4));
 }
 .tape-lg { font-size: 27px; padding: 7px 18px 4px; }
+.tape-btn { border: 0; cursor: pointer; text-align: left; max-width: 100%; white-space: normal; }
+.tape-btn .caret { font-family: var(--f-body); font-size: 14px; margin-left: 10px; opacity: .55; vertical-align: middle; }
+.tape-btn:hover .caret, .tape-btn:focus-visible .caret { opacity: 1; }
 
 .coach {
   position: absolute; transform: translate(-6%, -100%); pointer-events: none;
@@ -290,11 +293,12 @@ button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px 
 @media (max-width: 520px) { .brand h1 { font-size: 36px; } .clear-card { padding: 18px 16px 14px; } .clear-card h2 { font-size: 19px; } .stats { margin-bottom: 14px; } }
 
 /* 확인 창 */
-.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+.modal { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 1000; display: grid; place-items: center; overflow: auto;
+  -webkit-overflow-scrolling: touch; will-change: transform; isolation: isolate;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   background: rgba(4,6,8,0.7); opacity: 0; transition: opacity .18s; }
 .modal.in { opacity: 1; }
-.modal-card { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 22px 22px 18px;
+.modal-card { width: min(400px, 100%); max-height: 100%; overflow: auto; background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 22px 22px 18px;
   box-shadow: 0 30px 60px -20px rgba(0,0,0,.9); }
 .modal-card h2 { margin: 0 0 8px; font-size: 19px; line-height: 1.3; text-wrap: balance; }
 .modal-card p { margin: 0 0 18px; color: var(--muted); font-size: 13px; text-wrap: pretty; }
@@ -2407,31 +2411,65 @@ const MECH = (() => {
   const hasBodies = objs => objs.some(o => (o.type === 'ball' || o.type === 'pendulum' || o.type === 'loadcell' || o.type === 'lever') && !o.hidden);
 
   /* 한 배치의 전체 해답:
-     1) 종이가 온전하고 구슬이 제자리에 있는 상태로 추적(Rpre) → 집광 판정 → 타는 종이는 BURN_T에 사라진다
+     1) 종이가 온전하고 구슬이 제자리에 있는 상태로 추적(Rpre) → 집광 판정 → 타는 종이는 BURN_T에 사라진다.
+        탄 종이가 길을 열어 그 뒤의 종이에 빛이 닿으면 그 종이도 BURN_T 뒤에 탄다 (연쇄, 정적 상태에서 반복)
      2) 역학 시뮬레이션 (구슬은 종이가 사라질 때까지 그 위에 머물러 있다)
-     3) 최종 상태(탄 종이 없음, 구슬은 멈춘 자리)로 다시 추적(R) → 센서 판정은 이것으로 */
+     3) 최종 상태(탄 종이 없음, 구슬은 멈춘 자리, 지레는 기운 각도)로 다시 추적(R) → 센서 판정은 이것으로.
+        구슬이 비키거나 지레가 기울어 드러난 종이가 기준을 넘기면, 모두 멈춘 뒤 BURN_T에 타는 것으로 보고 2)부터 다시 */
   const BURN_T = 0.7;
+  // 시뮬레이션에서 마지막으로 무언가 움직인 시각
+  function settleTime(M) {
+    const F = M.frames;
+    for (let i = F.length - 1; i > 0; i--) {
+      const A = F[i], B = F[i - 1];
+      if (A.b.some((v, j) => Math.hypot(v[0] - B.b[j][0], v[1] - B.b[j][1]) > 0.5) || A.l.some((v, j) => Math.abs(v - B.l[j]) > 1e-3) || A.p.some((v, j) => Math.abs(v - B.p[j]) > 1e-3)) return A.t;
+    }
+    return 0;
+  }
   function solve(objs) {
     const live = objs.filter(o => !o.hidden);
     const papers = live.filter(o => o.type === 'paper');
     papers.forEach(o => { o.burnt = false; });
+    const burnAt = new Map(), heat = new Map();
+    // 광선 Rk로 아직 안 탄 종이를 판정. 기준을 넘긴 종이는 tBurn에 사라진다. 새로 탄 종이가 있으면 true
+    const judge = (Rk, tBurn) => {
+      let any = false;
+      for (const o of papers) {
+        if (o.burnt) continue;
+        const hits = Rk.sensorHits.get(o) || [];
+        const h = { obj: o, hits, ...GAME.paperHeat(o, hits, Rk.emitted) };
+        heat.set(o, h);
+        if (h.ok) { o.burnt = true; burnAt.set(o, tBurn); any = true; }
+      }
+      return any;
+    };
+    const finalObjs = M => live.map(o => {
+      if (!M) return o;
+      if (o.type === 'lever') { const q = M.levers.find(k => k.obj === o); return { ...o, rot: q.a / DEG }; }
+      if (o.type !== 'ball') return o;
+      const b = M.balls.find(k => k.obj === o);
+      return b.lost ? null : { ...o, x: b.x, y: b.y };
+    }).filter(Boolean);
+
+    // 1) 정적 연쇄
     const Rpre = OPT.trace(live);
-    const paperRes = papers.map(o => ({ obj: o, hits: Rpre.sensorHits.get(o) || [], ...GAME.paperHeat(o, Rpre.sensorHits.get(o) || [], Rpre.emitted) }));
-    const burnAt = new Map();
-    for (const r of paperRes) if (r.ok) { r.obj.burnt = true; burnAt.set(r.obj, BURN_T); }
-    const M = hasBodies(live) ? simulate(live, burnAt) : null;
-    let R = Rpre;
-    if (burnAt.size || (M && M.balls.length)) {
-      const finalObjs = live.map(o => {
-        if (!M) return o;
-        if (o.type === 'lever') { const q = M.levers.find(k => k.obj === o); return { ...o, rot: q.a / DEG }; }
-        if (o.type !== 'ball') return o;
-        const b = M.balls.find(k => k.obj === o);
-        return b.lost ? null : { ...o, x: b.x, y: b.y };
-      }).filter(Boolean);
-      R = OPT.trace(finalObjs);
+    const rays = [{ t: 0, R: Rpre }];   // 재생 시각별 광선
+    let Rk = Rpre, t = BURN_T;
+    for (let i = 0; i < 6 && judge(Rk, t); i++) { Rk = OPT.trace(live); rays.push({ t, R: Rk }); t += BURN_T; }
+    // 2) 역학 → 3) 최종 추적. 드러난 종이가 더 타면 다시
+    let M = null, R = Rk, tFinal = rays[rays.length - 1].t;
+    for (let i = 0; i < 3; i++) {
+      M = hasBodies(live) ? simulate(live, burnAt) : null;
+      if (!(burnAt.size || (M && M.balls.length))) break;
+      R = OPT.trace(finalObjs(M));
+      if (!M) break;
+      const tBurn = settleTime(M) + BURN_T;
+      if (!judge(R, tBurn)) break;
+      tFinal = tBurn;
     }
-    return { Rpre, R, M, paperRes, burnt: burnAt.size > 0 };
+    const last = rays[rays.length - 1];
+    if (last.t === tFinal) last.R = R; else rays.push({ t: tFinal, R });
+    return { Rpre, R, M, rays, paperRes: papers.map(o => heat.get(o)), burnt: burnAt.size > 0 };
   }
 
   /* ---------- 단단한 배치 ----------
@@ -2535,7 +2573,7 @@ const MECH = (() => {
   let evalRes = [];
   let M = null;              // MECH.simulate 결과 (역학 부품이 있는 스테이지만)
   let paperRes = [];         // 종이별 집광 판정 (타기 전 광선 기준)
-  let Rpre = R;              // 타기 전(구슬이 제자리에 있을 때)의 광선 — 재생 초반에 그린다
+  let rays = [];             // 재생 시각별 광선 [{ t, R }] — 종이가 탈 때마다 바뀐다
   let hasBurn = false;
   let replayT0 = 0;          // 재생 시작 시각 (performance.now)
   const BURN_T = MECH.BURN_T;
@@ -2601,7 +2639,7 @@ const MECH = (() => {
   function retrace() {
     // 광학(타기 전/후) + 역학을 한 번에 푼다. 센서는 최종 상태의 광선(R)으로 판정한다
     const sol = MECH.solve(S.objs);
-    Rpre = sol.Rpre; R = sol.R; M = sol.M; paperRes = sol.paperRes; hasBurn = sol.burnt;
+    R = sol.R; M = sol.M; rays = sol.rays; paperRes = sol.paperRes; hasBurn = sol.burnt;
     replayT0 = performance.now();
     evaluate();
     dirty = true;
@@ -2637,8 +2675,14 @@ const MECH = (() => {
   const replayTime = () => (performance.now() - replayT0) / 1000;
   const simTime = replayTime;
   const replayDone = () => !M || simTime() >= M.tEnd;
-  // 재생 중 보여줄 광선: 종이가 타기 전에는 구슬이 빛을 막고 있던 상태
-  const raysNow = () => (M && hasBurn && replayTime() < BURN_T ? Rpre : R);
+  // 재생 중 보여줄 광선: 종이가 타기 전에는 구슬이 빛을 막고 있던 상태, 연쇄로 타면 단계별로 바뀐다
+  function raysNow() {
+    if (!M || !hasBurn) return R;
+    const t = replayTime();
+    let out = R;
+    for (const k of rays) if (k.t <= t) out = k.R; else break;
+    return out;
+  }
   // 마지막 로드셀 접촉이 화면에 보이는 재생 시각(ms)
   function lastEventMs() {
     if (!M) return 0;
@@ -3690,7 +3734,7 @@ const MECH = (() => {
       const st = stageOf();
       html += `
         <section class="sec mission">
-          <div class="tape tape-lg">스테이지 ${st.id} · ${st.title}</div>
+          <button class="tape tape-lg tape-btn" id="missionPick" aria-haspopup="dialog" aria-controls="stagePick" title="스테이지 고르기">스테이지 ${st.id} · ${st.title}<span class="caret">▾</span></button>
           <p class="tools"><span>도구</span>${st.tools}</p>
           <p class="brief">${st.brief}</p>
           <div id="hintBox"></div>
@@ -4014,7 +4058,17 @@ const MECH = (() => {
 
   function verdict(r) {
     if (r.obj.type === 'paper') {
-      if (r.ok) return S.revealed ? '정답 배치에서 종이가 타요.' : '종이가 타서 구슬이 떨어져요.';
+      if (r.ok) {
+        if (S.revealed) return '정답 배치에서 종이가 타요.';
+        // 종이 위에 구슬이 얹혀 있으면 떨어지고, 아니면(걸쇠·문·다리) 길이 열린다
+        const o = r.obj, p = Object.assign({}, PARTS.paper.defaults, o.params || {}), th = o.rot * Math.PI / 180;
+        const onTop = Math.abs(Math.cos(th)) > 0.5 && S.objs.some(b => {
+          if (b.type !== 'ball' || b.hidden) return false;
+          const br = (b.params && b.params.r) || PARTS.ball.defaults.r;
+          return Math.abs(b.x - o.x) <= p.w / 2 && b.y < o.y && o.y - b.y < br + p.th + 4;
+        });
+        return onTop ? '종이가 타서 구슬이 떨어져요.' : '종이가 타서 길이 열려요.';
+      }
       if (!r.hits.length) return '종이에 닿은 빛이 없어요.';
       if (r.reflected && r.reflected >= r.hits.length) return '종이 색과 같은 빛은 반사되어 달구지 않아요.';
       return '빛을 더 좍은 한 점에 모아야 타요.';
@@ -4088,6 +4142,7 @@ const MECH = (() => {
     if (pickerFocus && pickerFocus.focus) pickerFocus.focus({ preventScroll: true });
   }
   $('#stageCur').addEventListener('click', openPicker);
+  panel.addEventListener('click', e => { if (e.target.closest('#missionPick')) openPicker(); });
   $('#pickLab').addEventListener('click', () => { closePicker(); if (S.mode !== 'lab') loadLab(); });
   picker.addEventListener('click', e => { if (e.target === picker) closePicker(); });
   $('#prevBtn').addEventListener('click', () => { if (S.mode === 'stage' && S.stage > 0) loadStage(S.stage - 1); else if (S.mode === 'lab') loadStage(STAGES.length - 1); });
