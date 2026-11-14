@@ -690,6 +690,32 @@ const OPT = (() => {
       defaults: { L: 120, r: 12, m: 1, a0: 0 },
       build(p) { return { prims: [], box: [-p.L - p.r, -p.r, p.L + p.r, p.L + p.r] }; },
     },
+    lever: {
+      // (x,y)는 받침점(축). 왼팔 l1, 오른팔 l2 길이의 막대가 구슬의 무게로 기울어진다. rot이 현재 기울기(°, +는 오른팔이 내려감).
+      // amin/amax: 축의 멈춤쇠(°). m: 막대 질량(쇠구슬 1 기준). 막대는 빛을 막는다.
+      name: '지레', radius: 0,
+      defaults: { l1: 100, l2: 100, th: 8, m: 1, amin: -30, amax: 30 },
+      build(p) {
+        const out = []; rect(-p.l1, -p.th / 2, p.l2, p.th / 2, 'absorb', out);
+        return { prims: out, box: [-p.l1, -p.th / 2, p.l2, p.th / 2] };
+      },
+    },
+    slide: {
+      // (x,y)는 원호의 중심. 반지름 R인 안쪽 면을 구슬이 타고 달린다. a0 → a1 (°, 0 = +x, 90 = 아래). 띄 두께 w.
+      name: '슬라이드', radius: 0,
+      defaults: { R: 120, w: 10, a0: 180, a1: 60 },
+      build(p) {
+        const out = [], n = Math.max(4, Math.ceil(Math.abs(p.a1 - p.a0) / 6)), d = Math.PI / 180;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (let i = 0; i < n; i++) {
+          const fa = (p.a0 + (p.a1 - p.a0) * i / n) * d, fb = (p.a0 + (p.a1 - p.a0) * (i + 1) / n) * d;
+          const q = [[p.R * Math.cos(fa), p.R * Math.sin(fa)], [p.R * Math.cos(fb), p.R * Math.sin(fb)], [(p.R + p.w) * Math.cos(fb), (p.R + p.w) * Math.sin(fb)], [(p.R + p.w) * Math.cos(fa), (p.R + p.w) * Math.sin(fa)]];
+          segPoly(q, 'absorb', out);
+          for (const [x, y] of q) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+        }
+        return { prims: out, box: [x0, y0, x1, y1] };
+      },
+    },
   };
 
   // 부품 하나의 월드 좌표 기본 도형
@@ -1122,13 +1148,13 @@ const GAME = (() => {
       brief: '넓은 별빛을 위쪽 벽의 <b>16 mm 구멍</b> 너머 센서에 모아 보내세요.',
       fixed: [
         { type: 'source', x: 60, y: 420, rot: 0, params: { spectrum: 'white', width: 64, rays: 9 }, label: '별빛' },
-        { type: 'wall', x: 346, y: 375, rot: 0, params: { w: 692, h: 14 } },
-        { type: 'wall', x: 854, y: 375, rot: 0, params: { w: 292, h: 14 } },
+        { type: 'wall', x: 346, y: 372, rot: 0, params: { w: 692, h: 14 } },
+        { type: 'wall', x: 854, y: 372, rot: 0, params: { w: 292, h: 14 } },
         { type: 'sensor', x: 700, y: 290, rot: 270, params: { len: 60 }, label: '접안 센서',
           goal: { checks: [{ kind: 'power', min: 0.5 }] } },
       ],
       inventory: { mirrorConcave: 1, mirror: 1 },
-      partParams: { mirror: { h: 14 } },
+      partParams: { mirror: { h: 14 }, mirrorConcave: { h: 40 } },
       partNames: { mirror: '소형 거울' },
       hints: [
         '오목거울은 빛을 되돌려 보내면서 초점거리 140 mm 앞에 모아요. 빛줄기 오른쪽 끝에 오목거울을 세우세요.',
@@ -1362,8 +1388,8 @@ const GAME = (() => {
         '다시 흰빛이 된 빛줄기를 평면거울로 꺾어 두 바늘구멍을 차례로 지나게 하세요.',
       ],
       solution: [
-        { type: 'prism', x: 265, y: 175, rot: 201 },
-        { type: 'mirror', x: 760, y: 178, rot: -45 },
+        { type: 'prism', x: 270, y: 179, rot: 201 },
+        { type: 'mirror', x: 755, y: 178, rot: -45 },
       ],
     },
     {
@@ -1518,7 +1544,7 @@ const GAME = (() => {
       solution: [
         { type: 'prism', x: 300, y: 320, rot: 22 },
         { type: 'mirror', x: 489.71, y: 506.62, rot: 44.8 },
-        { type: 'lensConvex', x: 323, y: 259.3, rot: 231.2 },
+        { type: 'lensConvex', x: 316.7, y: 251.5, rot: 231.2 },
       ],
     },
     {
@@ -1748,7 +1774,7 @@ const GAME = (() => {
       clearTitle: '빛을 한 점에 모아 종이를 태웠어요',
       brief: '종이를 태워 쇠구슬을 아래 <b>로드셀</b>에 떨어뜨리세요.',
       fixed: [
-        { type: 'source', x: 70, y: 200, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 30, rays: 7 }, label: '레이저 650 nm' },
+        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 30, rays: 7 }, label: '레이저 650 nm' },
         { type: 'wall', x: 538.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'wall', x: 662.0, y: 345.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'paper', x: 600, y: 328.5, rot: 0, params: { w: 110 }, label: '종이' },
@@ -1762,7 +1788,7 @@ const GAME = (() => {
         '빛은 옆에서 오고 있어요. 거울로 아래로 꺾은 뒤, 렌즈를 종이에서 초점거리(100 mm)만큼 위에 두세요.',
       ],
       solution: [
-        { type: 'mirror', x: 560, y: 200, rot: 315 },
+        { type: 'mirror', x: 560, y: 150, rot: 315 },
         { type: 'lensConvex', x: 560, y: 228, rot: 90 },
       ],
     },
@@ -1829,7 +1855,7 @@ const GAME = (() => {
       brief: '빨간 레이저는 아래 센서로, 구슬은 오른쪽 받침대 위 <b>로드셀</b>로 보내세요.',
       fixed: [
         { type: 'source', x: 70, y: 400, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 20, rays: 5 }, label: '레이저 650 nm' },
-        { type: 'source', x: 70, y: 150, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'source', x: 70, y: 100, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
         { type: 'sensor', x: 600, y: 600, rot: 90, params: { len: 80 }, label: '빨강 센서', goal: { checks: [{ kind: 'band', name: '빨강', band: [625, 700], min: 0.7 }] } },
         { type: 'wall', x: 573.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'wall', x: 687.0, y: 305.0, rot: 0, params: { w: 14, h: 30 } },
@@ -1846,7 +1872,7 @@ const GAME = (() => {
       ],
       solution: [
         { type: 'prismRight', x: 600, y: 400, rot: 0 },
-        { type: 'mirror', x: 650, y: 150, rot: 315 },
+        { type: 'mirror', x: 650, y: 100, rot: 315 },
         { type: 'lensConvex', x: 650, y: 190, rot: 90 },
         { type: 'plank', x: 830, y: 545, rot: -8 },
       ],
@@ -1883,7 +1909,7 @@ const GAME = (() => {
       clearTitle: '무거운 추에 부딪힌 구슬이 되돌아왔어요',
       brief: '구슬로 <b>무거운 진자</b>를 친 뒤, 왼쪽 바닥의 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
-        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
+        { type: 'source', x: 70, y: 70, rot: 0, params: { spectrum: 'mono', lambda: 532, width: 24, rays: 5 }, label: '레이저 532 nm' },
         { type: 'wall', x: 538.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'wall', x: 662.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'paper', x: 600, y: 258.5, rot: 0, params: { w: 110, need: 0.4 }, label: '종이' },
@@ -1902,8 +1928,8 @@ const GAME = (() => {
         '바닥은 왼쪽으로 살짝 기울어 있어요. 되튕긴 구슬은 굴러가 종이 다리 자리에 닿아요. 다리는 스플리터로 나눈 다른 절반으로 태우세요.',
       ],
       solution: [
-        { type: 'splitter', x: 460, y: 120, rot: 315 },
-        { type: 'mirror', x: 580, y: 120, rot: 315 },
+        { type: 'splitter', x: 460, y: 70, rot: 315 },
+        { type: 'mirror', x: 580, y: 70, rot: 315 },
         { type: 'lensConvex', x: 580, y: 157, rot: 90 },
         { type: 'lensConvex', x: 460, y: 458, rot: 90 },
         { type: 'plank', x: 650, y: 390, rot: 12 },
@@ -1978,7 +2004,7 @@ const GAME = (() => {
       clearTitle: '판자 두 장으로 구슬 길을 만들고, 두 종이를 태웠어요',
       brief: '구슬을 기둥 너머 왼쪽 바닥의 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
-        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'source', x: 70, y: 70, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 24, rays: 5 }, label: '레이저 650 nm' },
         { type: 'wall', x: 538.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'wall', x: 662.0, y: 275.0, rot: 0, params: { w: 14, h: 30 } },
         { type: 'paper', x: 600, y: 258.5, rot: 0, params: { w: 110, need: 0.4 }, label: '종이' },
@@ -1997,9 +2023,9 @@ const GAME = (() => {
         '첫 판자로 구슬을 오른쪽으로 굴려 보내고, 둘째 판자로 받아 되돌려 기둥 아래를 지나 왼쪽으로 굴리세요.',
       ],
       solution: [
-        { type: 'splitter', x: 470, y: 120, rot: 315 },
+        { type: 'splitter', x: 470, y: 70, rot: 315 },
         { type: 'lensConvex', x: 470, y: 498, rot: 90 },
-        { type: 'mirror', x: 600, y: 120, rot: 315 },
+        { type: 'mirror', x: 600, y: 70, rot: 315 },
         { type: 'lensConvex', x: 600, y: 157, rot: 90 },
         { type: 'plank', x: 660, y: 390, rot: 14 },
         { type: 'plank', x: 840, y: 530, rot: -14 },
@@ -2078,14 +2104,15 @@ const MECH = (() => {
   const DEG = Math.PI / 180;
 
   const paramsOf = o => Object.assign({}, PARTS[o.type].defaults, o.params || {});
-  const BOUNCE = { plank: 0.3, loadcell: 0.12, wall: 0.35, lensConvex: 0.55, lensConcave: 0.55, prism: 0.55, prismRight: 0.55, mirror: 0.4 };
+  const BOUNCE = { plank: 0.3, loadcell: 0.12, wall: 0.35, lensConvex: 0.55, lensConcave: 0.55, prism: 0.55, prismRight: 0.55, mirror: 0.4, lever: 0.3, slide: 0.3 };
 
   // 충돌 도형: 월드 좌표의 볼록 다각형. 프리즘은 삼각형, 나머지는 각 부품의 상자
   // burnAt: 타는 종이 → 사라지는 시각(s). 그때까지는 구슬을 받친다
+  // 지레(움직임)와 슬라이드(원호)는 여기 없고 simulate가 따로 다룬다
   function shapesOf(objs, burnAt) {
     const out = [];
     for (const o of objs) {
-      if (o.hidden || o.type === 'ball' || o.type === 'pendulum') continue;
+      if (o.hidden || o.type === 'ball' || o.type === 'pendulum' || o.type === 'lever' || o.type === 'slide') continue;
       const until = o.type === 'paper' && burnAt && burnAt.has(o) ? burnAt.get(o) : Infinity;
       const p = paramsOf(o);
       const th = o.rot * DEG, c = Math.cos(th), s = Math.sin(th);
@@ -2122,11 +2149,37 @@ const MECH = (() => {
     return { d: r - dist, nx: (cx - bx) / dist, ny: (cy - by) / dist };
   }
 
+  // 지레 막대의 현재 다각형
+  function leverPts(q) {
+    const ux = Math.cos(q.a), uy = Math.sin(q.a), nx = -uy * q.th / 2, ny = ux * q.th / 2;
+    return [[q.px - q.l1 * ux - nx, q.py - q.l1 * uy - ny], [q.px + q.l2 * ux - nx, q.py + q.l2 * uy - ny], [q.px + q.l2 * ux + nx, q.py + q.l2 * uy + ny], [q.px - q.l1 * ux + nx, q.py - q.l1 * uy + ny]];
+  }
+
+  // 구르는 구슬의 접선 속도 갱신: 속이 찬 구는 접선 가속도가 5/7배, 작은 굴림 저항. 법선 성분은 그대로 둔다
+  function roll(b, nx, ny) {
+    const tx = -ny, ty = nx, gt = G * ty;
+    let vt = b.vx * tx + b.vy * ty;
+    const vn = b.vx * nx + b.vy * ny;
+    vt -= (2 / 7) * gt * DT;
+    const rr = 0.012 * G * DT;
+    vt = Math.abs(vt) <= rr ? 0 : vt - Math.sign(vt) * rr;
+    b.vx = vt * tx + vn * nx; b.vy = vt * ty + vn * ny;
+  }
+
   function simulate(objs, burnAt) {
     const shapes = shapesOf(objs, burnAt);
     const balls = objs.filter(o => o.type === 'ball' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, x: o.x, y: o.y, vx: 0, vy: 0, r: p.r, m: p.m, lost: false }; });
     const pends = objs.filter(o => o.type === 'pendulum' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, px: o.x, py: o.y, L: p.L, r: p.r, m: p.m, a: p.a0 * DEG, w: 0, struck: null, maxSwing: Math.abs(p.a0) }; });
     const cells = objs.filter(o => o.type === 'loadcell' && !o.hidden).map(o => ({ obj: o, hit: null }));
+    // 지레: 받침점 둘레 관성 I = m/(3L)·(l1³+l2³), 무게중심은 축에서 s = (l2-l1)/2
+    const levers = objs.filter(o => o.type === 'lever' && !o.hidden).map(o => {
+      const p = paramsOf(o), L = p.l1 + p.l2;
+      return { obj: o, px: o.x, py: o.y, l1: p.l1, l2: p.l2, th: p.th, m: p.m, I: p.m / (3 * L) * (p.l1 ** 3 + p.l2 ** 3), s: (p.l2 - p.l1) / 2, amin: p.amin * DEG, amax: p.amax * DEG, a: o.rot * DEG, w: 0, lo: false, hi: false, maxTilt: 0 };
+    });
+    const slides = objs.filter(o => o.type === 'slide' && !o.hidden).map(o => {
+      const p = paramsOf(o);
+      return { obj: o, cx: o.x, cy: o.y, R: p.R, w: p.w, a0: Math.min(p.a0, p.a1) * DEG, a1: Math.max(p.a0, p.a1) * DEG, e: BOUNCE.slide };
+    });
     const bobPos = q => [q.px + q.L * Math.sin(q.a), q.py + q.L * Math.cos(q.a)];
     const touch = (sh, t, speed, by) => {
       if (sh.obj.type !== 'loadcell') return;
@@ -2134,13 +2187,34 @@ const MECH = (() => {
       if (cell && !cell.hit) cell.hit = { t, speed, by };
     };
     const frames = [];
-    const record = t => frames.push({ t, b: balls.map(b => [b.x, b.y, b.lost ? 1 : 0]), p: pends.map(q => q.a) });
+    const record = t => frames.push({ t, b: balls.map(b => [b.x, b.y, b.lost ? 1 : 0]), p: pends.map(q => q.a), l: levers.map(q => q.a) });
     record(0);
     const steps = Math.round(T_MAX / DT);
     for (let i = 1; i <= steps; i++) {
       const t = i * DT;
       // 진자: θ'' = -(g/L)·sinθ, 약한 공기 저항
       for (const q of pends) { q.w += -(G / q.L) * Math.sin(q.a) * DT; q.w *= 1 - 0.03 * DT; q.a += q.w * DT; }
+      // 지레: 막대 자체의 무게 토크 → 회전. 멈춤쇠나 받침(바닥·종이)에 걸리면 그 방향으로는 더 못 돈다
+      for (const q of levers) {
+        q.w += q.s * Math.cos(q.a) * q.m * G / q.I * DT;
+        q.w *= 1 - 0.4 * DT;
+        const a0 = q.a;
+        q.a += q.w * DT;
+        q.lo = q.hi = false;
+        if (q.a <= q.amin) { q.a = q.amin; if (q.w < 0) q.w = 0; q.lo = true; }
+        if (q.a >= q.amax) { q.a = q.amax; if (q.w > 0) q.w = 0; q.hi = true; }
+        if (q.a !== a0) {
+          const ux = Math.cos(q.a), uy = Math.sin(q.a), ends = [[q.px - q.l1 * ux, q.py - q.l1 * uy], [q.px + q.l2 * ux, q.py + q.l2 * uy]];
+          let hit = false;
+          for (const sh of shapes) {
+            if (t >= sh.until) continue;
+            for (const [ex, ey] of ends) if (circlePoly(ex, ey, q.th / 2, sh.pts)) { hit = true; break; }
+            if (hit) break;
+          }
+          if (hit) { if (q.a > a0) q.hi = true; else q.lo = true; q.a = a0; q.w = 0; }
+        }
+        q.maxTilt = Math.max(q.maxTilt, Math.abs(q.a - q.obj.rot * DEG) / DEG);
+      }
       for (const b of balls) {
         if (b.lost) continue;
         b.vy += G * DT;
@@ -2155,17 +2229,45 @@ const MECH = (() => {
           if (vn < 0) {
             const e = -vn < REST_V ? 0 : sh.e;
             b.vx -= (1 + e) * vn * c.nx; b.vy -= (1 + e) * vn * c.ny;
-            if (e === 0) {
-              // 굴러간다: 속이 찬 구는 접선 가속도가 5/7배, 작은 굴림 저항
-              const tx = -c.ny, ty = c.nx, gt = G * ty;
-              let vt = b.vx * tx + b.vy * ty;
-              vt -= (2 / 7) * gt * DT;
-              const rr = 0.012 * G * DT;
-              vt = Math.abs(vt) <= rr ? 0 : vt - Math.sign(vt) * rr;
-              b.vx = vt * tx; b.vy = vt * ty;
-            }
+            if (e === 0) roll(b, c.nx, c.ny);
           }
           touch(sh, t, speed, 'ball');
+        }
+        // 슬라이드: 원호 안쪽 면. 원의 법선으로 풀어 접선 속도가 깨지지 않게 한다
+        for (const sl of slides) {
+          const dx = b.x - sl.cx, dy = b.y - sl.cy, d = Math.hypot(dx, dy);
+          if (d < 1e-9 || d <= sl.R - b.r || d >= sl.R + sl.w + b.r) continue;
+          let ang = Math.atan2(dy, dx); while (ang < sl.a0) ang += 2 * Math.PI; while (ang >= sl.a0 + 2 * Math.PI) ang -= 2 * Math.PI;
+          if (ang > sl.a1) continue;
+          const inner = d < sl.R + sl.w / 2;
+          const nx = inner ? -dx / d : dx / d, ny = inner ? -dy / d : dy / d;
+          const depth = inner ? d - (sl.R - b.r) : (sl.R + sl.w + b.r) - d;
+          b.x += nx * depth; b.y += ny * depth;
+          const vn = b.vx * nx + b.vy * ny;
+          if (vn < 0) {
+            const e = -vn < REST_V ? 0 : sl.e;
+            b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny;
+            if (e === 0) roll(b, nx, ny);
+          }
+        }
+        // 지레: 움직이는 막대. 접촉점의 막대 속도를 기준으로 충격량을 주고받는다 (구슬의 무게가 토크가 된다)
+        for (const q of levers) {
+          const c = circlePoly(b.x, b.y, b.r, leverPts(q));
+          if (!c) continue;
+          b.x += c.nx * c.d; b.y += c.ny * c.d;
+          const rx = b.x - c.nx * b.r - q.px, ry = b.y - c.ny * b.r - q.py;
+          const sx = -q.w * ry, sy = q.w * rx;
+          const vrel = (b.vx - sx) * c.nx + (b.vy - sy) * c.ny;
+          if (vrel >= 0) continue;
+          const e = -vrel < REST_V ? 0 : BOUNCE.lever;
+          const rn = rx * c.ny - ry * c.nx;
+          // 이 충격이 막대를 돌리려는 방향이 막혀 있으면 막대는 고정된 바닥과 같다
+          const dir = -rn, fixed = (dir < 0 && q.lo) || (dir > 0 && q.hi);
+          const k = 1 / b.m + (fixed ? 0 : rn * rn / q.I);
+          const J = -(1 + e) * vrel / k;
+          b.vx += J * c.nx / b.m; b.vy += J * c.ny / b.m;
+          if (!fixed) q.w -= J * rn / q.I;
+          if (e === 0) roll(b, c.nx, c.ny);
         }
         // 진자 추와의 충돌: 추는 줄에 매여 접선 방향으로만 움직인다.
         // 법선 방향 1차원 충돌로 풀되, 추의 유효 질량은 m/(t·n)² (축이 나머지 충격을 받는다)
@@ -2213,7 +2315,7 @@ const MECH = (() => {
       }
       if (i % 4 === 0) record(t);
     }
-    return { frames, cells, balls, pends, tEnd: T_MAX };
+    return { frames, cells, balls, pends, levers, tEnd: T_MAX };
   }
 
   // 재생용: 시각 t의 보간된 프레임
@@ -2223,10 +2325,10 @@ const MECH = (() => {
     if (t >= sim.tEnd) return F[F.length - 1];
     const k = t / (F[1].t - F[0].t), i = Math.min(F.length - 2, Math.floor(k)), f = k - i;
     const A = F[i], B = F[i + 1];
-    return { t, b: A.b.map((v, j) => [v[0] + (B.b[j][0] - v[0]) * f, v[1] + (B.b[j][1] - v[1]) * f, v[2] || B.b[j][2]]), p: A.p.map((v, j) => v + (B.p[j] - v) * f) };
+    return { t, b: A.b.map((v, j) => [v[0] + (B.b[j][0] - v[0]) * f, v[1] + (B.b[j][1] - v[1]) * f, v[2] || B.b[j][2]]), p: A.p.map((v, j) => v + (B.p[j] - v) * f), l: A.l.map((v, j) => v + (B.l[j] - v) * f) };
   }
 
-  const hasBodies = objs => objs.some(o => (o.type === 'ball' || o.type === 'pendulum' || o.type === 'loadcell') && !o.hidden);
+  const hasBodies = objs => objs.some(o => (o.type === 'ball' || o.type === 'pendulum' || o.type === 'loadcell' || o.type === 'lever') && !o.hidden);
 
   /* 한 배치의 전체 해답:
      1) 종이가 온전하고 구슬이 제자리에 있는 상태로 추적(Rpre) → 집광 판정 → 타는 종이는 BURN_T에 사라진다
@@ -2245,7 +2347,9 @@ const MECH = (() => {
     let R = Rpre;
     if (burnAt.size || (M && M.balls.length)) {
       const finalObjs = live.map(o => {
-        if (o.type !== 'ball' || !M) return o;
+        if (!M) return o;
+        if (o.type === 'lever') { const q = M.levers.find(k => k.obj === o); return { ...o, rot: q.a / DEG }; }
+        if (o.type !== 'ball') return o;
         const b = M.balls.find(k => k.obj === o);
         return b.lost ? null : { ...o, x: b.x, y: b.y };
       }).filter(Boolean);
@@ -2254,7 +2358,72 @@ const MECH = (() => {
     return { Rpre, R, M, paperRes, burnt: burnAt.size > 0 };
   }
 
-  return { G, T_MAX, BURN_T, simulate, solve, frameAt, hasBodies, circlePoly, shapesOf };
+  /* ---------- 단단한 배치 ----------
+     모든 물체는 단단해서 서로 파고들 수 없다. 부품을 놓거나 옮길 때 다른 물체(고정 장치·구슬·다른 부품)와
+     겹치는 자세는 거부한다. 받침대 안으로 판자를 밀어 넣어 구슬을 들어 올리는 식의 조작을 막는다. */
+
+  // 두 볼록 다각형이 겹치는가 (분리축 정리). 변끼리 맞닿기만 하면 겹침이 아니다
+  function polyOverlap(A, B) {
+    for (const P of [A, B]) {
+      for (let i = 0; i < P.length; i++) {
+        const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length];
+        const nx = by - ay, ny = ax - bx;
+        let minA = Infinity, maxA = -Infinity, minB = Infinity, maxB = -Infinity;
+        for (const [x, y] of A) { const d = x * nx + y * ny; if (d < minA) minA = d; if (d > maxA) maxA = d; }
+        for (const [x, y] of B) { const d = x * nx + y * ny; if (d < minB) minB = d; if (d > maxB) maxB = d; }
+        if (maxA <= minB + 1e-9 || maxB <= minA + 1e-9) return false;
+      }
+    }
+    return true;
+  }
+
+  // 슬라이드 원호 띠를 이루는 사각형들 (월드 좌표)
+  function slideQuads(o) {
+    const p = paramsOf(o), n = Math.max(4, Math.ceil(Math.abs(p.a1 - p.a0) / 6)), out = [];
+    const at = (r, a) => [o.x + r * Math.cos(a), o.y + r * Math.sin(a)];
+    for (let i = 0; i < n; i++) {
+      const fa = (p.a0 + (p.a1 - p.a0) * i / n) * DEG, fb = (p.a0 + (p.a1 - p.a0) * (i + 1) / n) * DEG;
+      out.push([at(p.R, fa), at(p.R, fb), at(p.R + p.w, fb), at(p.R + p.w, fa)]);
+    }
+    return out;
+  }
+
+  // 물체 하나가 차지하는 단단한 영역(시작 상태 기준): 볼록 다각형들과 원들 [cx, cy, r]
+  function solidOf(o) {
+    const polys = [], circles = [], p = paramsOf(o);
+    if (o.type === 'ball') circles.push([o.x, o.y, p.r]);
+    else if (o.type === 'pendulum') {
+      const a = p.a0 * DEG, bx = o.x + p.L * Math.sin(a), by = o.y + p.L * Math.cos(a), nx = Math.cos(a), ny = -Math.sin(a);
+      circles.push([bx, by, p.r]);
+      polys.push([[o.x - nx, o.y - ny], [o.x + nx, o.y + ny], [bx + nx, by + ny], [bx - nx, by - ny]]); // 줄
+    } else if (o.type === 'lever') {
+      polys.push(leverPts({ px: o.x, py: o.y, l1: p.l1, l2: p.l2, th: p.th, a: o.rot * DEG }));
+      polys.push([[o.x, o.y + 2], [o.x - 14, o.y + 26], [o.x + 14, o.y + 26]]); // 받침대
+      polys.push([[o.x - 20, o.y + 24], [o.x + 20, o.y + 24], [o.x + 20, o.y + 30], [o.x - 20, o.y + 30]]);
+    } else if (o.type === 'slide') polys.push(...slideQuads(o));
+    else polys.push(shapesOf([o], null)[0].pts);
+    return { polys, circles };
+  }
+
+  // 부품 o를 지금 자세로 두면 겹치는 다른 물체, 없으면 null
+  function overlaps(o, objs) {
+    const me = solidOf(o);
+    for (const k of objs) {
+      if (k === o || k.hidden) continue;
+      const other = solidOf(k);
+      for (const A of me.polys) {
+        for (const B of other.polys) if (polyOverlap(A, B)) return k;
+        for (const [cx, cy, r] of other.circles) if (circlePoly(cx, cy, r, A)) return k;
+      }
+      for (const [cx, cy, r] of me.circles) {
+        for (const B of other.polys) if (circlePoly(cx, cy, r, B)) return k;
+        for (const [qx, qy, qr] of other.circles) if (Math.hypot(cx - qx, cy - qy) < r + qr) return k;
+      }
+    }
+    return null;
+  }
+
+  return { G, T_MAX, BURN_T, simulate, solve, frameAt, hasBodies, circlePoly, shapesOf, solidOf, overlaps };
 })();
 
 </script>
@@ -2280,8 +2449,8 @@ const MECH = (() => {
 
   const LAB_PARTS = ['prism', 'prismRight', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'splitter', 'filter', 'slit'];
   const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0, plank: 0 };
-  const BODY_TYPES = new Set(['ball', 'pendulum']);          // 시뮬레이션 상태로 그리는 부품
-  const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell']);
+  const BODY_TYPES = new Set(['ball', 'pendulum', 'lever']); // 시뮬레이션 상태로 그리는 부품
+  const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell', 'lever', 'slide']);
 
   /* ---------- 상태 ---------- */
   let S = null;
@@ -2489,6 +2658,11 @@ const MECH = (() => {
     drawBodies(ctx, px);
     const sel = selObj();
     if (sel && !sel.hidden) drawSelection(ctx, sel, px);
+    if (blocked) {
+      const o = S.objs.find(k => k.id === blocked.id);
+      if (performance.now() < blocked.until && o && !o.hidden) { drawBlocked(ctx, o, px); dirty = true; }
+      else blocked = null;
+    }
   }
 
   function loop() {
@@ -2754,8 +2928,53 @@ const MECH = (() => {
         case 'plank': drawPlank(c, p, px); break;
         case 'paper': drawPaper(c, o, p, px); break;
         case 'loadcell': drawLoadcell(c, o, p, px); break;
+        case 'slide': drawSlide(c, p, px); break;
       }
     });
+  }
+
+  // 슬라이드: 원호 띄. 구슬은 안쪽 면을 탄다
+  function drawSlide(c, p, px) {
+    const d = Math.PI / 180, a0 = Math.min(p.a0, p.a1) * d, a1 = Math.max(p.a0, p.a1) * d;
+    const band = () => { c.beginPath(); c.arc(0, 0, p.R, a0, a1, false); c.arc(0, 0, p.R + p.w, a1, a0, true); c.closePath(); };
+    band();
+    const g = c.createRadialGradient(0, 0, p.R, 0, 0, p.R + p.w);
+    g.addColorStop(0, '#5b6572'); g.addColorStop(0.35, '#3a424d'); g.addColorStop(1, '#232930');
+    c.fillStyle = g; c.fill();
+    c.save(); band(); c.clip();
+    c.strokeStyle = 'rgba(255,255,255,0.07)'; c.lineWidth = 2 * px;
+    c.beginPath();
+    for (let a = a0; a <= a1; a += 4 * d) { c.moveTo(Math.cos(a) * (p.R + 1), Math.sin(a) * (p.R + 1)); c.lineTo(Math.cos(a) * (p.R + p.w), Math.sin(a) * (p.R + p.w)); }
+    c.stroke(); c.restore();
+    band(); c.strokeStyle = '#6b7684'; c.lineWidth = px; c.stroke();
+    // 활주면 하이라이트
+    c.beginPath(); c.arc(0, 0, p.R + 1.2, a0, a1, false); c.strokeStyle = 'rgba(220,235,255,0.35)'; c.lineWidth = 1.6 * px; c.stroke();
+  }
+
+  // 지레: 받침대(고정) + 기울어지는 막대
+  function drawLever(c, o, p, a, px) {
+    c.save(); c.translate(o.x, o.y);
+    // 받침대
+    c.beginPath(); c.moveTo(0, 2); c.lineTo(-14, 26); c.lineTo(14, 26); c.closePath();
+    const fg = c.createLinearGradient(0, 2, 0, 26); fg.addColorStop(0, '#4b5563'); fg.addColorStop(1, '#262c35');
+    c.fillStyle = fg; c.fill(); c.strokeStyle = C.bodyEdge; c.lineWidth = px; c.stroke();
+    roundRect(c, -20, 24, 40, 6, 2); c.fillStyle = '#20262e'; c.fill(); c.stroke();
+    // 막대
+    c.rotate(a);
+    const ht = p.th / 2, L = p.l1 + p.l2;
+    roundRect(c, -p.l1, -ht, L, p.th, 2);
+    const g = c.createLinearGradient(0, -ht, 0, ht);
+    g.addColorStop(0, '#a9793f'); g.addColorStop(0.5, '#8a6132'); g.addColorStop(1, '#6b4a25');
+    c.fillStyle = g; c.fill();
+    c.save(); roundRect(c, -p.l1, -ht, L, p.th, 2); c.clip();
+    c.strokeStyle = 'rgba(60,35,10,0.45)'; c.lineWidth = px;
+    c.beginPath();
+    for (let i = -3; i <= 3; i++) { const y = i * ht / 3.2; c.moveTo(-p.l1, y); c.bezierCurveTo(-p.l1 / 3, y + 1.5, p.l2 / 3, y - 1.5, p.l2, y); }
+    c.stroke(); c.restore();
+    roundRect(c, -p.l1, -ht, L, p.th, 2); c.strokeStyle = '#3d2a14'; c.lineWidth = px; c.stroke();
+    // 축 핀
+    c.beginPath(); c.arc(0, 0, 3.2, 0, Math.PI * 2); c.fillStyle = '#9aa5b4'; c.fill(); c.strokeStyle = '#151a20'; c.lineWidth = px; c.stroke();
+    c.restore();
   }
 
   /* ---------- 역학 부품 그리기 ---------- */
@@ -2866,6 +3085,10 @@ const MECH = (() => {
         // 줄
         c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(bx, by); c.strokeStyle = 'rgba(220,225,235,0.75)'; c.lineWidth = 1.2 * px; c.stroke();
         drawBall(c, bx, by, p.r, px, p.m > 1);
+      } else if (o.type === 'lever') {
+        const i = M ? M.levers.findIndex(q => q.obj === o) : -1;
+        const a = f && i >= 0 ? f.l[i] : o.rot * Math.PI / 180;
+        drawLever(c, o, p, a, px);
       } else {
         const i = M ? M.balls.findIndex(b => b.obj === o) : -1;
         const st = f && i >= 0 ? f.b[i] : [o.x, o.y, 0];
@@ -3002,7 +3225,7 @@ const MECH = (() => {
     // 진자 라벨은 축 브래킷 옆에 붙인다 (전체 흔들림 범위 상자는 너무 크다)
     const bb = o.type === 'pendulum' ? [o.x - 12, o.y - 8, o.x + 12, o.y + 4] : worldBox(o), gap = 7 * px, th = o.rot * Math.PI / 180;
     // 빛이 드나드는 쪽(fx, fy)은 광학 부품에만 있다. 역학 부품은 어느 쪽이든 상관없다
-    const mech = o.type === 'paper' || o.type === 'loadcell' || o.type === 'pendulum' || o.type === 'ball' || o.type === 'wall';
+    const mech = o.type === 'paper' || o.type === 'loadcell' || o.type === 'pendulum' || o.type === 'ball' || o.type === 'wall' || o.type === 'lever' || o.type === 'slide';
     const fx = mech ? 0 : o.type === 'sensor' ? -Math.cos(th) : Math.cos(th), fy = mech ? 0 : o.type === 'sensor' ? -Math.sin(th) : Math.sin(th);
     const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
     // 누운 종이는 위에 구슬이 올려져 있으니 아래쪽부터, 세운 종이·로드셀은 옆쪽부터 찾는다
@@ -3067,6 +3290,31 @@ const MECH = (() => {
   }
 
   const fmtDeg = d => (Math.round(normDeg(d) * 10) / 10).toFixed(1);
+
+  /* ---------- 단단한 배치 ----------
+     부품은 다른 물체(고정 장치·구슬·다른 부품)와 겹치는 자세로 놓을 수 없다.
+     겹치는 조작은 거부하고 이전 자세로 되돌리며, 부품을 잠깐 붉게 표시한다 */
+  let blocked = null; // { id, until }
+  function tryPose(o, x, y, rot) {
+    const px = o.x, py = o.y, pr = o.rot;
+    o.x = x; o.y = y; o.rot = rot;
+    if (o.hidden || !MECH.overlaps(o, S.objs)) return true;
+    o.x = px; o.y = py; o.rot = pr;
+    blocked = { id: o.id, until: performance.now() + 350 };
+    dirty = true;
+    return false;
+  }
+  const tryMove = (o, x, y) => tryPose(o, clamp(x, 8, W - 8), clamp(y, 8, H - 8), o.rot);
+  const tryRot = (o, rot) => tryPose(o, o.x, o.y, normDeg(rot));
+
+  function drawBlocked(c, o, px) {
+    const sh = MECH.solidOf(o);
+    c.save();
+    c.strokeStyle = 'rgba(239,68,68,0.9)'; c.lineWidth = 2 * px; c.lineJoin = 'round';
+    for (const poly of sh.polys) { c.beginPath(); poly.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.stroke(); }
+    for (const [x, y, r] of sh.circles) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.stroke(); }
+    c.restore();
+  }
 
   /* ---------- 조작 ---------- */
   function toWorld(e) {
@@ -3135,14 +3383,18 @@ const MECH = (() => {
   function onDragMove(e, p) {
     const o = drag.obj;
     if (drag.kind === 'move') {
-      o.x = clamp(p.x + drag.dx, 8, W - 8); o.y = clamp(p.y + drag.dy, 8, H - 8);
       const out = !p.inside && !o.locked && (S.mode === 'lab' ? o.type !== 'source' && o.type !== 'sensor' : true);
-      o.hidden = out;
+      if (out) { o.hidden = true; o.x = clamp(p.x + drag.dx, 8, W - 8); o.y = clamp(p.y + drag.dy, 8, H - 8); }
+      else {
+        // 판 밖에 있던 부품이 겹치는 자리로 들어오면 빈자리를 찾을 때까지 숨긴 채로 둔다
+        const was = o.hidden; o.hidden = false;
+        if (!tryMove(o, p.x + drag.dx, p.y + drag.dy) && was) o.hidden = true;
+      }
       boardWrap.classList.toggle('dropping-out', out);
     } else if (drag.kind === 'rotate') {
       let a = Math.atan2(p.y - o.y, p.x - o.x) * 180 / Math.PI + 90;
       a = e.shiftKey ? Math.round(a / 15) * 15 : Math.round(a * 10) / 10;
-      o.rot = normDeg(a);
+      tryRot(o, a);
     }
     retrace();
   }
@@ -3166,7 +3418,7 @@ const MECH = (() => {
     if (Math.hypot(p.x - sel.x, p.y - sel.y) > knobPos(sel).r + 20) return;
     e.preventDefault();
     const step = e.shiftKey ? 10 : 0.5;
-    sel.rot = normDeg(sel.rot + (e.deltaY > 0 ? step : -step));
+    tryRot(sel, sel.rot + (e.deltaY > 0 ? step : -step));
     retrace();
   }, { passive: false });
 
@@ -3180,12 +3432,12 @@ const MECH = (() => {
     let used = true;
     const big = e.shiftKey ? 10 : 1;
     switch (e.key) {
-      case 'q': case 'Q': case '[': sel.rot = normDeg(sel.rot - (e.shiftKey ? 10 : 0.5)); break;
-      case 'e': case 'E': case ']': sel.rot = normDeg(sel.rot + (e.shiftKey ? 10 : 0.5)); break;
-      case 'ArrowLeft': sel.x = clamp(sel.x - big, 8, W - 8); break;
-      case 'ArrowRight': sel.x = clamp(sel.x + big, 8, W - 8); break;
-      case 'ArrowUp': sel.y = clamp(sel.y - big, 8, H - 8); break;
-      case 'ArrowDown': sel.y = clamp(sel.y + big, 8, H - 8); break;
+      case 'q': case 'Q': case '[': tryRot(sel, sel.rot - (e.shiftKey ? 10 : 0.5)); break;
+      case 'e': case 'E': case ']': tryRot(sel, sel.rot + (e.shiftKey ? 10 : 0.5)); break;
+      case 'ArrowLeft': tryMove(sel, sel.x - big, sel.y); break;
+      case 'ArrowRight': tryMove(sel, sel.x + big, sel.y); break;
+      case 'ArrowUp': tryMove(sel, sel.x, sel.y - big); break;
+      case 'ArrowDown': tryMove(sel, sel.x, sel.y + big); break;
       case 'Delete': case 'Backspace': if (canReturn(sel)) returnToInv(sel); else used = false; break;
       case 'Escape': select(null); break;
       default: used = false;
@@ -3222,15 +3474,19 @@ const MECH = (() => {
     return { type: d.type, key, x: W / 2, y: H / 2, rot: DEFAULT_ROT[d.type] || 0, params, id: uid++, locked: false };
   }
 
-  function freeSpot() {
+  // 새 부품 o를 놓을 빈자리: 다른 물체와 겹치지 않고 되도록 떨어진 곳
+  function freeSpot(o) {
     const cands = [];
     for (let r = 0; r < 6; r++) for (let a = 0; a < 8; a++) {
       const ang = a * Math.PI / 4 + r * 0.4;
       cands.push({ x: W * 0.45 + Math.cos(ang) * r * 70, y: H * 0.5 + Math.sin(ang) * r * 55 });
     }
-    for (const c of cands) {
-      if (c.x < 60 || c.x > W - 60 || c.y < 60 || c.y > H - 60) continue;
-      if (S.objs.every(o => Math.hypot(o.x - c.x, o.y - c.y) > 95)) return c;
+    const fits = c => { o.x = c.x; o.y = c.y; return !MECH.overlaps(o, S.objs); };
+    for (const pass of [95, 0]) {
+      for (const c of cands) {
+        if (c.x < 60 || c.x > W - 60 || c.y < 60 || c.y > H - 60) continue;
+        if (S.objs.every(k => k === o || k.hidden || Math.hypot(k.x - c.x, k.y - c.y) > pass) && fits(c)) return c;
+      }
     }
     return { x: W / 2, y: H / 2 };
   }
@@ -3411,6 +3667,7 @@ const MECH = (() => {
           <li><b>이동</b> 부품을 끌기 · 방향키 1 mm (Shift 10 mm)</li>
           <li><b>회전</b> 노란 손잡이 끌기 · 오른쪽 아래 각도 버튼 · 마우스 휠 · Q/E 0.5° (Shift 10°)</li>
           <li><b>회수</b> 판 밖으로 끌어내기 · 회수 버튼 · Delete</li>
+          <li><b>단단한 물체</b> 부품은 받침대·구슬·다른 부품과 겹치게 놓을 수 없어요. 겹치는 자리로는 움직이지 않고 붉게 표시돼요</li>
           <li><b>정반</b> 구멍 간격 25 mm · 볼트 표시는 고정 부품</li>
         </ul>
         <p>굴절은 스넬 법칙으로, 거울은 반사 법칙으로 계산합니다. 프리즘 안에서 임계각을 넘으면 전반사가 일어나요.</p>
@@ -3531,15 +3788,19 @@ const MECH = (() => {
         drag = { kind: 'new', obj: st.obj };
       }
       const p = toWorld(e), o = st.obj;
-      o.x = clamp(p.x, 8, W - 8); o.y = clamp(p.y, 8, H - 8);
-      o.hidden = !p.inside;
+      if (!p.inside) { o.hidden = true; o.x = clamp(p.x, 8, W - 8); o.y = clamp(p.y, 8, H - 8); }
+      else {
+        // 겹치는 자리에서는 빈자리를 찾을 때까지 숨긴 채로 따라온다 (그대로 놓으면 부품함으로 돌아간다)
+        const was = o.hidden; o.hidden = false;
+        if (!tryMove(o, p.x, p.y) && was) o.hidden = true;
+      }
       retrace();
     });
     const up = () => {
       if (!st) return;
       const o = st.obj; st = null; drag = null;
       if (!o) {
-        const o2 = newPiece(type), sp = freeSpot();
+        const o2 = newPiece(type), sp = freeSpot(o2);
         o2.x = sp.x; o2.y = sp.y;
         S.objs.push(o2); commitPiece(o2); select(o2);
       } else if (o.hidden) {
@@ -3575,7 +3836,7 @@ const MECH = (() => {
           <button class="btn sm" data-r="10" aria-label="시계 10도">+10°</button>
         </div>`;
       box.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
-        const s = selObj(); if (!s) return; s.rot = normDeg(s.rot + +b.dataset.r); retrace();
+        const s = selObj(); if (!s) return; tryRot(s, s.rot + +b.dataset.r); retrace();
       }));
       $('#selRet').addEventListener('click', () => { const s = selObj(); if (s) returnToInv(s); });
     }
