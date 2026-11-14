@@ -409,7 +409,7 @@ html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
       <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
       <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
-      <span class="prog mono" id="progress">0 / 42 클리어</span>
+      <span class="prog mono" id="progress">0 / 43 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
       <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2143,6 +2143,41 @@ const GAME = (() => {
         { type: 'plank', x: 309, y: 344, rot: 45 },
       ],
     },
+    {
+      id: 43, title: '빛 가리개', tools: '빔스플리터 · 평면거울 · 볼록렌즈 2개 · 판자',
+      clearTitle: '지레가 기울자 가려졌던 빛이 열렸어요',
+      brief: '아래쪽 구슬을 <b>로드셀</b>에 떨어뜨리세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 지레: 수평에서 시작해 오른팔이 40°까지 내려간다. 왼팔이 올라가면 그 아래로 빛이 지나갈 틈이 생긴다
+        { type: 'lever', x: 600, y: 430, rot: 0, params: { l1: 150, l2: 150, th: 8, m: 2, amin: 0, amax: 40 }, label: '지레' },
+        // 위 선반 (오른쪽 멀리) + 구슬 1
+        { type: 'wall', x: 775, y: 336, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 885, y: 336, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 830, y: 319.5, rot: 0, params: { w: 96, need: 0.45 }, label: '위 종이' },
+        { type: 'ball', x: 855, y: 306, rot: 0, params: { r: 12 } },
+        // 아래 선반 (왼팔 밑) + 구슬 2 + 로드셀
+        { type: 'wall', x: 415, y: 566, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 525, y: 566, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 470, y: 549.5, rot: 0, params: { w: 96, need: 0.45 }, label: '아래 종이' },
+        { type: 'ball', x: 496, y: 536, rot: 0, params: { r: 12 } },
+        { type: 'loadcell', x: 470, y: 600, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { splitter: 1, mirror: 1, lensConvex: 2, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '지레 막대는 빛을 막아요. 왼팔 아래 종이로 가는 빛은 지레가 기울어 왼팔이 들려야 지나가요. 위 구슬을 오른팔에 실어 지레를 기울이세요.',
+        '스플리터에서 아래로 꺾인 빛은 지레 왼팔 끝 바깥쪽을 지나게 두고, 통과한 빛은 거울로 꺾어 위 종이에 렌즈로 모으세요. 판자로 위 구슬을 오른팔 끝에 올리면 돼요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 470, y: 120, rot: 315 },
+        { type: 'lensConvex', x: 470, y: 450, rot: 90 },
+        { type: 'mirror', x: 830, y: 120, rot: 315 },
+        { type: 'lensConvex', x: 830, y: 220, rot: 90 },
+        { type: 'plank', x: 805, y: 395, rot: -18 },
+      ],
+    },
   ];
 
   /* 진자 판정. q: MECH 시뮬레이션의 진자 상태 { struck:{t,speed}|null, maxSwing(°) }
@@ -2415,7 +2450,7 @@ const MECH = (() => {
         탄 종이가 길을 열어 그 뒤의 종이에 빛이 닿으면 그 종이도 BURN_T 뒤에 탄다 (연쇄, 정적 상태에서 반복)
      2) 역학 시뮬레이션 (구슬은 종이가 사라질 때까지 그 위에 머물러 있다)
      3) 최종 상태(탄 종이 없음, 구슬은 멈춘 자리, 지레는 기운 각도)로 다시 추적(R) → 센서 판정은 이것으로.
-        구슬이 비키거나 지레가 기울어 드러난 종이가 기준을 넘기면, 모두 멈춘 뒤 BURN_T에 타는 것으로 보고 2)부터 다시 */
+        구슬이 비키거나 지레가 기울어 드러난 종이가 기준을 넘기면, 빛이 처음 닿은 시각 + BURN_T에 타는 것으로 보고 2)부터 다시 */
   const BURN_T = 0.7;
   // 시뮬레이션에서 마지막으로 무언가 움직인 시각
   function settleTime(M) {
@@ -2443,30 +2478,51 @@ const MECH = (() => {
       }
       return any;
     };
-    const finalObjs = M => live.map(o => {
-      if (!M) return o;
-      if (o.type === 'lever') { const q = M.levers.find(k => k.obj === o); return { ...o, rot: q.a / DEG }; }
-      if (o.type !== 'ball') return o;
-      const b = M.balls.find(k => k.obj === o);
-      return b.lost ? null : { ...o, x: b.x, y: b.y };
-    }).filter(Boolean);
+    // 시각 t의 물체 상태(구슬 위치·지레 각도·그때까지 탄 종이)로 추적
+    const traceAt = (M, t) => {
+      const f = M ? frameAt(M, t) : null;
+      for (const o of papers) o.burnt = burnAt.has(o) && burnAt.get(o) <= t;
+      const objsT = live.map(o => {
+        if (!f) return o;
+        if (o.type === 'lever') return { ...o, rot: f.l[M.levers.findIndex(k => k.obj === o)] / DEG };
+        if (o.type !== 'ball') return o;
+        const b = f.b[M.balls.findIndex(k => k.obj === o)];
+        return b[2] ? null : { ...o, x: b[0], y: b[1] };
+      }).filter(Boolean);
+      const Rt = OPT.trace(objsT);
+      for (const o of papers) o.burnt = burnAt.has(o);
+      return Rt;
+    };
 
     // 1) 정적 연쇄
     const Rpre = OPT.trace(live);
     const rays = [{ t: 0, R: Rpre }];   // 재생 시각별 광선
     let Rk = Rpre, t = BURN_T;
     for (let i = 0; i < 6 && judge(Rk, t); i++) { Rk = OPT.trace(live); rays.push({ t, R: Rk }); t += BURN_T; }
-    // 2) 역학 → 3) 최종 추적. 드러난 종이가 더 타면 다시
+    // 2) 역학 → 3) 최종 추적. 드러난 종이가 더 타면, 빛이 처음 닿은 시각을 찾아 그때부터 BURN_T 뒤에 태우고 다시
     let M = null, R = Rk, tFinal = rays[rays.length - 1].t;
     for (let i = 0; i < 3; i++) {
       M = hasBodies(live) ? simulate(live, burnAt) : null;
       if (!(burnAt.size || (M && M.balls.length))) break;
-      R = OPT.trace(finalObjs(M));
+      R = M ? traceAt(M, T_MAX) : OPT.trace(live);
       if (!M) break;
-      const tBurn = settleTime(M) + BURN_T;
+      const tSettle = settleTime(M), tBurn = tSettle + BURN_T;
+      const before = new Set(burnAt.keys());
       if (!judge(R, tBurn)) break;
-      tFinal = tBurn;
+      const fresh = papers.filter(o => burnAt.has(o) && !before.has(o));
+      // 빛이 닿기 시작한 시각: 마지막 정적 단계부터 1/8초 간격으로 훑는다
+      let tLit = tSettle, Rlit = null;
+      for (let tt = tFinal; tt < tSettle; tt += 0.125) {
+        for (const o of fresh) burnAt.delete(o);
+        const Rt = traceAt(M, tt);
+        for (const o of fresh) burnAt.set(o, tBurn);
+        if (fresh.every(o => GAME.paperHeat(o, Rt.sensorHits.get(o) || [], Rt.emitted).ok)) { tLit = tt; Rlit = Rt; break; }
+      }
+      for (const o of fresh) burnAt.set(o, tLit + BURN_T);
+      if (Rlit && tLit > tFinal) rays.push({ t: tLit, R: Rlit });
+      tFinal = tLit + BURN_T;
     }
+    for (const o of papers) o.burnt = burnAt.has(o);
     const last = rays[rays.length - 1];
     if (last.t === tFinal) last.R = R; else rays.push({ t: tFinal, R });
     return { Rpre, R, M, rays, paperRes: papers.map(o => heat.get(o)), burnt: burnAt.size > 0 };
