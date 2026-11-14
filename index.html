@@ -2795,9 +2795,12 @@ const MECH = (() => {
   }
 
   function maybeWin() {
-    if (S.mode !== 'stage' || S.won || S.revealed) return;
+    if (S.mode !== 'stage' || S.revealed) return;
+    const met = allGoalsMet();
+    // 클리어한 뒤 '계속 다듬기'로 배치를 바꿔 조건이 깨졌다가 다시 풀리면, 그것도 새 풀이로 인정한다
+    if (S.won) { if (!met) S.won = false; return; }
     clearTimeout(winTimer);
-    if (!allGoalsMet() || drag) return;
+    if (!met || drag) return;
     winTimer = setTimeout(() => {
       if (!drag && allGoalsMet() && !S.won && !S.revealed) {
         S.won = true; S.overlay = true;
@@ -3581,7 +3584,8 @@ const MECH = (() => {
       const k = knobPos(sel);
       if (Math.hypot(p.x - k.x, p.y - k.y) < tol) {
         drag = { kind: 'rotate', obj: sel };
-        cv.setPointerCapture(e.pointerId); e.preventDefault(); dirty = true; return;
+        try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 포인터가 이미 끝남 */ }
+        e.preventDefault(); dirty = true; return;
       }
     }
     const o = pick(p);
@@ -3590,7 +3594,8 @@ const MECH = (() => {
       drag = { kind: 'move', obj: o, dx: o.x - p.x, dy: o.y - p.y };
       // 맨 위로
       S.objs.splice(S.objs.indexOf(o), 1); S.objs.push(o);
-      cv.setPointerCapture(e.pointerId); e.preventDefault();
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 포인터가 이미 끝남 */ }
+      e.preventDefault();
       cv.style.cursor = 'grabbing';
       dismissCoach();
     } else select(null);
@@ -3639,6 +3644,9 @@ const MECH = (() => {
   }
   cv.addEventListener('pointerup', endDrag);
   cv.addEventListener('pointercancel', endDrag);
+  window.addEventListener('pointerup', () => { endDrag(); if (dock) dock.up(); });
+  window.addEventListener('pointercancel', () => { endDrag(); if (dock) dock.cancel(); });
+  window.addEventListener('blur', () => { endDrag(); if (dock) dock.cancel(); });
 
   cv.addEventListener('wheel', e => {
     const sel = selObj();
@@ -3999,14 +4007,16 @@ const MECH = (() => {
     box.querySelectorAll('.part').forEach(bindPart);
   }
 
+  let dock = null; // 진행 중인 부품함 끌기 { up, cancel } (창 어디서 놓여도 끝낸다)
   function bindPart(btn) {
     const type = btn.dataset.key;
     let st = null;
     btn.addEventListener('pointerdown', e => {
       if (btn.disabled || S.overlay || !(S.inv[type] > 0)) return;
       e.preventDefault();
-      btn.setPointerCapture(e.pointerId);
+      try { btn.setPointerCapture(e.pointerId); } catch (err) { /* 포인터가 이미 끝남 */ }
       st = { sx: e.clientX, sy: e.clientY, obj: null };
+      dock = { up, cancel };
     });
     btn.addEventListener('pointermove', e => {
       if (!st) return;
@@ -4027,7 +4037,7 @@ const MECH = (() => {
     });
     const up = () => {
       if (!st) return;
-      const o = st.obj; st = null; drag = null;
+      const o = st.obj; st = null; drag = null; dock = null;
       if (!o) {
         const o2 = newPiece(type), sp = freeSpot(o2);
         o2.x = sp.x; o2.y = sp.y;
@@ -4037,11 +4047,13 @@ const MECH = (() => {
       } else commitPiece(o);
       retrace();
     };
+    const cancel = () => {
+      if (!st) return;
+      if (st.obj) { S.objs.splice(S.objs.indexOf(st.obj), 1); S.sel = null; }
+      st = null; drag = null; dock = null; retrace();
+    };
     btn.addEventListener('pointerup', up);
-    btn.addEventListener('pointercancel', () => {
-      if (st && st.obj) { S.objs.splice(S.objs.indexOf(st.obj), 1); S.sel = null; }
-      st = null; drag = null; retrace();
-    });
+    btn.addEventListener('pointercancel', cancel);
   }
 
   /* 선택한 부품 */
