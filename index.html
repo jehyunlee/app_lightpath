@@ -419,7 +419,7 @@ html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
       <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
       <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
-      <span class="prog mono" id="progress">0 / 46 클리어</span>
+      <span class="prog mono" id="progress">0 / 47 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
       <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2305,6 +2305,43 @@ const GAME = (() => {
         { type: 'prism', x: 300, y: 150, rot: 22 },
         { type: 'lensConvex', x: 600, y: 400, rot: 45 },
         { type: 'plank', x: 360, y: 370, rot: 35 },
+      ],
+    },
+    {
+      id: 47, title: '진자 망치', tools: '빔스플리터 · 평면거울 2개 · 볼록렌즈 2개 · 판자',
+      clearTitle: '망치가 지나가는 순간에 맞췄어요',
+      brief: '흔들리는 무거운 추에 구슬을 맞혀 오른쪽 벽의 <b>로드셀</b>을 세게 치세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 100, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 왼쪽 위 종이 선반 + 구슬 (빛은 x=150, 구슬은 오른쪽 끝)
+        { type: 'wall', x: 102, y: 266, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 198, y: 266, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 150, y: 249.5, rot: 0, params: { w: 82, need: 0.45 }, label: '종이 선반' },
+        { type: 'ball', x: 180, y: 236, rot: 0, params: { r: 12 } },
+        // 망치: 왼쪽 60°에서 놓은 무거운 추. 바닥 바로 위를 1.8 s 주기로 오간다
+        { type: 'pendulum', x: 520, y: 300, rot: 0, params: { L: 290, r: 16, m: 4, a0: -60 }, label: '망치 추', goal: { checks: [{ kind: 'struck' }] } },
+        // 키 큰 종이 문 (추가 닿지 않는 x=800): 빛은 위쪽에, 구슬은 아래쪽을 지난다
+        { type: 'paper', x: 800, y: 515, rot: 90, params: { w: 190, need: 0.45 }, label: '종이 문' },
+        // 문이 타고 난 뒤 퍼져 나가는 빛을 받아 주는 빛막이 (추의 궤적 위)
+        { type: 'wall', x: 640, y: 440, rot: 0, params: { w: 14, h: 100 } },
+        // 오른쪽 벽의 로드셀 (세게 부딪혀야 함)
+        { type: 'wall', x: 975, y: 400, rot: 0, params: { w: 14, h: 420 } },
+        { type: 'loadcell', x: 962, y: 575, rot: 90, params: { w: 70 }, label: '벽 로드셀', goal: { checks: [{ kind: 'impact', min: 1000 }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { splitter: 1, mirror: 2, lensConvex: 2, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '추는 진자라서 왕복 시간이 일정해요. 바닥을 지날 때마다 방향이 바뀌니, 구슬이 오른쪽으로 가는 추에 맞으려면 도착 시각을 맞춰야 해요. 판자의 기울기와 길이가 구슬의 도착 시각을 정해요.',
+        '스플리터로 나눈 빛 한 갈래는 렌즈로 선반 종이에, 다른 갈래는 거울 두 번으로 꺾어 종이 문 위쪽에 모으세요. 판자는 선반 바로 아래에 10° 안팎으로 완만하게 두어, 구슬이 떨어진 지 1.5초쯤 뒤에 추 아래를 지나게 하세요. 너무 가파르면 추보다 먼저 지나가 버리고, 조금 덜 가파르면 왼쪽으로 가는 추에 맞아요.',
+      ],
+      solution: [
+        { type: 'splitter', x: 150, y: 100, rot: 315 },
+        { type: 'lensConvex', x: 150, y: 150, rot: 90 },
+        { type: 'mirror', x: 900, y: 100, rot: 315 },
+        { type: 'mirror', x: 900, y: 440, rot: 45 },
+        { type: 'lensConvex', x: 845, y: 440, rot: 0 },
+        { type: 'plank', x: 200, y: 350, rot: 10 },
       ],
     },
   ];
