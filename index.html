@@ -419,7 +419,7 @@ html.compact .pick-foot { margin-top: 8px; font-size: 11.5px; }
       <button class="nav-b" id="prevBtn" aria-label="이전 스테이지">‹</button>
       <button class="stage-cur" id="stageCur" aria-haspopup="dialog" aria-controls="stagePick"><span class="mono">01</span><span class="t">파란빛만</span></button>
       <button class="nav-b" id="nextBtn" aria-label="다음 스테이지">›</button>
-      <span class="prog mono" id="progress">0 / 50 클리어</span>
+      <span class="prog mono" id="progress">0 / 57 클리어</span>
       <button class="lab-b" id="labBtn" aria-pressed="false">자유 실험실</button>
       <button class="fs-b" id="fsBtn" aria-pressed="false" aria-label="전체 화면" title="전체 화면">
         <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path class="fs-in" d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path class="fs-out" d="M8 3v5H3M12 3v5h5M17 12h-5v5M3 12h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -507,6 +507,8 @@ const OPT = (() => {
   const MAT = {
     flint: { A: 1.4176, B: 0.04039 },
     crown: { A: 1.5046, B: 0.0042 },
+    water: { A: 1.3199, B: 0.0046 },   // n(550) ≈ 1.335
+    ice: { A: 1.2983, B: 0.0046 },     // n(550) ≈ 1.313
   };
   const nOf = (mat, nm) => { const l = nm / 1000; return mat.A + mat.B / (l * l); };
 
@@ -730,6 +732,81 @@ const OPT = (() => {
         return { prims: out, box: [x0, y0, x1, y1] };
       },
     },
+    // ---- 파괴 장치: 빛에 녹고 타고 끓고, 구슬에 깨진다 ----
+    ice: {
+      // 투명한 얼음: 빛을 굴절시켜 통과시키되 들어오는 빛을 기록한다(가열). need 이상 모이면 MELT 뒤에 녹아 사라진다
+      name: '얼음', radius: 0,
+      defaults: { w: 60, h: 40, need: 0.8, spot: 10 },
+      build(p) {
+        const out = []; rect(-p.w / 2, -p.h / 2, p.w / 2, p.h / 2, 'glass', out);
+        return { prims: out, mat: MAT.ice, heat: true, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
+      },
+    },
+    flask: {
+      // 물이 든 둥근 플라스크 = 물 렌즈. 구슬이 vb(mm/s) 이상으로 부딪히면 깨져 사라진다
+      name: '둥근 물병', radius: 0,
+      defaults: { r: 36, vb: 500 },
+      build(p) {
+        return { prims: [{ k: 'a', cx: 0, cy: 0, r: p.r, a0: 0, span: Math.PI * 2, ns: 1, role: 'glass' }], mat: MAT.water, box: [-p.r, -p.r, p.r, p.r] };
+      },
+    },
+    pane: {
+      // 유리판: 빛은 살짝 비껴 통과하고 구슬은 막는다. vb 이상으로 부딪히면 깨진다
+      name: '유리판', radius: 0,
+      defaults: { h: 50, th: 6, vb: 600 },
+      build(p) {
+        const out = []; rect(-p.th / 2, -p.h, p.th / 2, p.h, 'glass', out);
+        return { prims: out, mat: MAT.crown, box: [-p.th / 2, -p.h, p.th / 2, p.h] };
+      },
+    },
+    rope: {
+      // 실: 고리(x,y)에서 국소 +y(아래)로 len. 빛에 타서 끊어지면 끝에 매달린 구슬이 떨어진다
+      name: '실', radius: 0,
+      defaults: { len: 120, th: 3, need: 0.8, spot: 10 },
+      build(p) {
+        const ht = p.th / 2;
+        const out = [
+          { k: 's', ax: -ht, ay: 0, bx: -ht, by: p.len, nx: -1, ny: 0, role: 'paper' },
+          { k: 's', ax: ht, ay: 0, bx: ht, by: p.len, nx: 1, ny: 0, role: 'paper' },
+          { k: 's', ax: -ht, ay: 0, bx: ht, by: 0, nx: 0, ny: -1, role: 'absorb' },
+          { k: 's', ax: -ht, ay: p.len, bx: ht, by: p.len, nx: 0, ny: 1, role: 'absorb' },
+        ];
+        return { prims: out, box: [-ht, 0, ht, p.len] };
+      },
+    },
+    candle: {
+      // 양초: 빛에 달궈지면 아래 끝에서 촛농이 n방울(각 drop 질량) 떨어진다. 촛농은 지레에 닿으면 굳어 붙고, 다른 데 떨어지면 굳어 사라진다
+      name: '양초', short: '양초', radius: 0,
+      defaults: { w: 22, h: 64, need: 0.8, spot: 10, n: 24, drop: 0.05 },
+      build(p) {
+        const out = []; rect(-p.w / 2, -p.h / 2, p.w / 2, p.h / 2, 'paper', out);
+        return { prims: out, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
+      },
+    },
+    boiler: {
+      // 주전자: 빛에 달궈져 끓으면 주둥이(국소 +x) 앞 jet 길이, 반높이 jh의 구역에 증기가 분다. 세기 jetA × 받은 빛 비율
+      name: '주전자', radius: 0,
+      defaults: { w: 70, h: 50, need: 0.6, spot: 14, jet: 200, jh: 24, jetA: 1500 },
+      build(p) {
+        const out = []; rect(-p.w / 2, -p.h / 2, p.w / 2, p.h / 2, 'paper', out);
+        return { prims: out, box: [-p.w / 2, -p.h / 2, p.w / 2, p.h / 2] };
+      },
+    },
+    fuse: {
+      // 도화선: (x,y)에서 국소 +x로 len, 끝에 폭죽. 빛이 닿은 자리부터 양쪽으로 타 들어가고 폭죽에 닿으면 터진다
+      name: '도화선', radius: 0,
+      defaults: { len: 200, th: 4, need: 0.8, spot: 10, blastR: 90, blastJ: 900 },
+      build(p) {
+        const ht = p.th / 2;
+        const out = [
+          { k: 's', ax: 0, ay: -ht, bx: p.len, by: -ht, nx: 0, ny: -1, role: 'paper' },
+          { k: 's', ax: 0, ay: ht, bx: p.len, by: ht, nx: 0, ny: 1, role: 'paper' },
+          { k: 's', ax: 0, ay: -ht, bx: 0, by: ht, nx: -1, ny: 0, role: 'absorb' },
+        ];
+        rect(p.len, -7, p.len + 14, 7, 'absorb', out);
+        return { prims: out, box: [0, -8, p.len + 14, 8] };
+      },
+    },
   };
 
   // 부품 하나의 월드 좌표 기본 도형
@@ -742,10 +819,10 @@ const OPT = (() => {
     const prims = g.prims.map(p => {
       if (p.k === 's') {
         const [ax, ay] = tx(p.ax, p.ay), [bx, by] = tx(p.bx, p.by);
-        return { k: 's', ax, ay, bx, by, nx: p.nx * c - p.ny * s, ny: p.nx * s + p.ny * c, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl };
+        return { k: 's', ax, ay, bx, by, nx: p.nx * c - p.ny * s, ny: p.nx * s + p.ny * c, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl, heat: g.heat };
       }
       const [cx, cy] = tx(p.cx, p.cy);
-      return { k: 'a', cx, cy, r: p.r, a0: p.a0 + th, span: p.span, ns: p.ns, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl };
+      return { k: 'a', cx, cy, r: p.r, a0: p.a0 + th, span: p.span, ns: p.ns, role: p.role, obj, mat: g.mat, band: g.band, excl: g.excl, refl: g.refl, heat: g.heat };
     });
     return { prims, geom: g, params };
   }
@@ -906,6 +983,12 @@ const OPT = (() => {
           return branches;
         }
       } else if (role === 'glass') {
+        if (hit.p.heat && dn < 0 && hit.p.k === 's') {
+          const s = hit.p, ex = s.bx - s.ax, ey = s.by - s.ay;
+          const u = ((qx - s.ax) * ex + (qy - s.ay) * ey) / (ex * ex + ey * ey);
+          if (!sensorHits.has(s.obj)) sensorHits.set(s.obj, []);
+          sensorHits.get(s.obj).push({ lambda: lam, I, u, dx, dy });
+        }
         const ng = nOf(hit.p.mat, lam);
         let fx = hit.nx, fy = hit.ny, n1, n2;
         if (dn < 0) { n1 = 1; n2 = ng; } else { n1 = ng; n2 = 1; fx = -fx; fy = -fy; }
@@ -1034,20 +1117,51 @@ const GAME = (() => {
   /* 종이의 집광 판정: 종이 위 spot(mm) 폭 안에 모인 빛이 전체 방출광의 need 비율 이상이면 탄다.
      종이 색(reflect 대역)과 같은 빛은 반사되어 가열에 보태지 않는다. */
   function paperHeat(paper, hits, emitted) {
-    const p = Object.assign({}, OPT.PARTS.paper.defaults, paper.params || {});
+    // 종이뿐 아니라 실·얼음·양초·주전자·도화선도 같은 규칙으로 달궈진다 (각 부품의 spot·need)
+    const p = Object.assign({}, OPT.PARTS[paper.type].defaults, paper.params || {});
     const rb = p.reflect;
     const useful = hits.filter(h => !rb || h.lambda < rb[0] || h.lambda > rb[1]).sort((a, b) => a.u - b.u);
-    const win = p.spot / p.w;
-    let best = 0, sum = 0, j = 0;
+    const win = p.spot / (p.len || Math.max(p.w, p.h || 0));   // 긴 면 기준 spot mm
+    let best = 0, sum = 0, j = 0, bj = 0, bi = -1;
     for (let i = 0; i < useful.length; i++) {
       sum += useful[i].I;
       while (useful[i].u - useful[j].u > win) { sum -= useful[j].I; j++; }
-      best = Math.max(best, sum);
+      if (sum > best) { best = sum; bj = j; bi = i; }
     }
+    // 가장 뜨거운 자리(0~1): 도화선은 여기부터 타 들어간다
+    let u = null;
+    if (bi >= 0) { let su = 0, si = 0; for (let k = bj; k <= bi; k++) { su += useful[k].u * useful[k].I; si += useful[k].I; } u = si ? su / si : null; }
     const v = emitted.length ? best / emitted.length : 0;
     const ok = v >= p.need - 1e-9;
     const check = { label: '집광 세기', frac: v, need: p.need, text: pct(v), needText: `기준 ${pct(p.need)}`, ok, kind: 'burn', value: v };
-    return { checks: [check], ok, reflected: rb ? hits.length - useful.length : 0 };
+    return { checks: [check], ok, reflected: rb ? hits.length - useful.length : 0, u };
+  }
+
+  /* 파괴 장치 판정: 풀이가 물체에 적어 둔 시각(goneAt·blastAt·boilAt·dripAt)으로 본다. heat: 가열 판정 결과(있으면) */
+  function evalEvent(goal, o, heat) {
+    const out = [], tText = t => t != null ? `${t.toFixed(2)} s` : '없음';
+    const flag = (label, t, needText) => ({ label, frac: t != null ? 1 : 0, need: 1, text: tText(t), needText, ok: t != null, value: t || 0 });
+    for (const c of goal.checks) {
+      let r;
+      switch (c.kind) {
+        case 'broken': r = flag('깨짐', o.goneAt, '깨짐'); break;
+        case 'intact': r = { label: '멀쩡함', frac: o.goneAt == null ? 1 : 0, need: 1, text: o.goneAt == null ? '멀쩡함' : `${o.goneAt.toFixed(2)} s에 깨짐`, needText: '멀쩡함', ok: o.goneAt == null, value: o.goneAt == null ? 1 : 0 }; break;
+        case 'melted': r = flag('녹음', o.goneAt, '녹음'); break;
+        case 'burnt': r = flag('타버림', o.goneAt, '타버림'); break;
+        case 'cut': r = flag('끊어짐', o.goneAt, '끊어짐'); break;
+        case 'burst': r = flag('폭발', o.blastAt, '폭발'); break;
+        case 'boiled': r = flag('끓음', o.boilAt, '끓음'); break;
+        case 'dripped': r = flag('촛농 떨어짐', o.dripAt, '떨어짐'); break;
+        case 'heat': {
+          const v = o.heatFrac != null ? o.heatFrac : heat ? heat.checks[0].frac : 0, ok = v >= c.min - 1e-9;
+          r = { label: '불 세기', frac: v, need: c.min, text: pct(v), needText: `기준 ${pct(c.min)}`, ok, value: v };
+          break;
+        }
+      }
+      r.kind = c.kind;
+      out.push(r);
+    }
+    return { checks: out, ok: out.every(x => x.ok) };
   }
 
   /* 로드셀 판정. hit: MECH 시뮬레이션이 기록한 첫 접촉 { t, speed, by } 또는 null
@@ -2454,6 +2568,189 @@ const GAME = (() => {
         { type: 'plank', x: 330, y: 350, rot: 35 },
       ],
     },
+    {
+      id: 51, title: '녹는 선반', tools: '볼록렌즈',
+      clearTitle: '얼음을 녹여 구슬을 떨어뜨렸어요',
+      brief: '얼음 위의 구슬을 <b>로드셀</b>에 떨어뜨리세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 300, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 얼음 덩이: 빛은 통과시키지만 한 점에 모인 빛은 녹인다 (2초)
+        { type: 'ice', x: 520, y: 300, rot: 0, params: { w: 60, h: 40, need: 0.8, spot: 10 }, label: '얼음' },
+        { type: 'ball', x: 520, y: 268, rot: 0, params: { r: 12 } },
+        { type: 'loadcell', x: 520, y: 600, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '얼음은 유리처럼 빛을 통과시키지만, 한 점에 모인 빛을 받으면 천천히 녹아요. 녹는 데 2초쯤 걸려요.',
+        '볼록렌즈(f = 100 mm)를 얼음 왼쪽 면에서 100 mm쯤 앞, 빔 한가운데에 두세요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 390, y: 300, rot: 0 },
+      ],
+    },
+    {
+      id: 52, title: '실 한 가닥', tools: '평면거울 2개 · 볼록렌즈',
+      clearTitle: '실을 태워 구슬로 유리판을 깨뜨렸어요',
+      brief: '매달린 구슬을 떨어뜨려 <b>유리판</b>을 깨고 <b>로드셀</b>에 닿게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 520, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 천장 고리에 매달린 실과 구슬
+        { type: 'rope', x: 640, y: 30, rot: 0, params: { len: 150, need: 0.8, spot: 10 }, label: '실' },
+        { type: 'ball', x: 640, y: 192, rot: 0, params: { r: 12 } },
+        // 떨어지는 길에 놓인 유리판 (가로). 빠른 구슬은 깨뜨리고 지나간다
+        { type: 'wall', x: 580, y: 400, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 700, y: 400, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'pane', x: 640, y: 400, rot: 90, params: { h: 53, th: 6, vb: 600 }, label: '유리판', goal: { checks: [{ kind: 'broken' }] } },
+        { type: 'loadcell', x: 640, y: 600, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { mirror: 2, lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '실은 옆에서 오는 빛을 한 점에 모아야 타요. 구슬이 떨어지면서 충분히 빨라지면 유리판은 깨져요.',
+        '거울 하나로 빔을 위로(45°) 올리고, 둘째 거울로 실 높이에서 오른쪽으로(225°) 꺾은 뒤 실 100 mm 앞에 렌즈를 두세요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 300, y: 520, rot: 45 },
+        { type: 'mirror', x: 300, y: 110, rot: 225 },
+        { type: 'lensConvex', x: 540, y: 110, rot: 0 },
+      ],
+    },
+    {
+      id: 53, title: '촛농 저울', tools: '평면거울 · 볼록렌즈',
+      clearTitle: '촛농의 무게로 지레를 기울여 구슬을 굴렸어요',
+      brief: '양초를 녹여 <b>지레</b>를 기울이고, 구슬을 <b>로드셀</b>에 떨어뜨리세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 100, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 양초: 심지(윗면)에 빛을 모으면 녹아 촛농이 아래 지레 왼팔에 떨어진다
+        { type: 'candle', x: 420, y: 300, rot: 0, params: { w: 22, h: 64, need: 0.8, spot: 10, n: 24, drop: 0.1 }, label: '양초' },
+        // 지레: 오른팔이 12° 내려간 채 멈춰 있고, 구슬은 오른팔 끝에서 기둥에 기대 있다
+        { type: 'lever', x: 520, y: 420, rot: 12, params: { l1: 120, l2: 120, th: 8, m: 1, amin: -14, amax: 12 }, label: '지레' },
+        { type: 'ball', x: 634, y: 428, rot: 0, params: { r: 12 } },
+        { type: 'wall', x: 653, y: 400, rot: 0, params: { w: 14, h: 60 }, label: '기둥' },
+        { type: 'wall', x: 218, y: 592, rot: 0, params: { w: 14, h: 36 } },
+        { type: 'loadcell', x: 270, y: 600, rot: 0, params: { w: 90 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { mirror: 1, lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '촛농은 한 방울씩 지레 왼팔에 떨어져 굳어요. 쌓인 촛농이 구슬보다 무거워지면 지레가 반대로 기울어요.',
+        '거울(315°)로 빔을 양초 바로 위에서 아래로 꺾고, 심지 100 mm 위에 렌즈(90°)를 두어 심지 한 점에 모으세요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 420, y: 100, rot: 315 },
+        { type: 'lensConvex', x: 420, y: 168, rot: 90 },
+      ],
+    },
+    {
+      id: 54, title: '증기 기관', tools: '볼록렌즈',
+      clearTitle: '알맞은 세기의 증기로 구슬을 창 너머로 보냈어요',
+      brief: '주전자를 끓여 증기로 구슬을 밀고, <b>벽의 창</b>을 지나 <b>로드셀</b>에 닿게 하세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 288, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 선반 위의 주전자와 구슬. 증기 세기는 주전자가 받은 빛의 세기에 비례한다
+        { type: 'wall', x: 400, y: 336, rot: 0, params: { w: 300, h: 12 }, label: '선반' },
+        { type: 'boiler', x: 330, y: 305, rot: 0, params: { w: 70, h: 50, need: 0.8, spot: 14, jet: 200, jh: 24, jetA: 1500 }, label: '주전자' },
+        { type: 'ball', x: 420, y: 318, rot: 0, params: { r: 12 } },
+        // 창이 난 벽: 너무 빠르면 창 위 벽에, 너무 느리면 창턱에 부딪힌다
+        { type: 'wall', x: 750, y: 251.5, rot: 0, params: { w: 14, h: 503 } },
+        { type: 'wall', x: 750, y: 585, rot: 0, params: { w: 14, h: 50 } },
+        { type: 'loadcell', x: 850, y: 600, rot: 0, params: { w: 140 }, label: '창 너머 셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 930, y: 575, rot: 0, params: { w: 14, h: 70 } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '주전자는 집광 80% 이상이어야 끓고, 증기의 세기는 받은 빛의 세기에 비례해요. 빛을 100% 다 모으면 증기가 너무 세서 구슬이 창 위 벽에 부딪혀요. 판독기의 집광 %를 보면서 80%를 찾으세요.',
+        '렌즈를 초점에서 비켜 두면 빔의 일부만 모여요. 주전자 왼쪽 면에서 20~35 mm 또는 160~180 mm 앞에 렌즈를 두면 80%가 돼요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 262, y: 288, rot: 0 },
+      ],
+    },
+    {
+      id: 55, title: '창문은 깨도 꽃병은', tools: '볼록렌즈 · 판자',
+      clearTitle: '창문만 깨고 꽃병은 지켰어요',
+      brief: '구슬로 <b>유리창</b>을 깨고 <b>로드셀</b>에 닿되, <b>꽃병</b>은 깨뜨리지 마세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'rope', x: 300, y: 30, rot: 0, params: { len: 110, need: 0.8, spot: 10 }, label: '실' },
+        { type: 'ball', x: 300, y: 152, rot: 0, params: { r: 12 } },
+        // 바닥(윗면 598)과 그 틈에 끼운 로드셀. 유리창은 600 mm/s 넘게 부딪혀야 깨지고, 꽃병은 850 mm/s에 깨진다
+        { type: 'wall', x: 317, y: 604, rot: 0, params: { w: 634, h: 12 } },
+        { type: 'loadcell', x: 665, y: 604, rot: 0, params: { w: 60 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 848, y: 604, rot: 0, params: { w: 304, h: 12 } },
+        // 낮은 복도: 구슬은 바닥을 굴러서만 들어갈 수 있다
+        { type: 'wall', x: 690, y: 512, rot: 0, params: { w: 420, h: 12 }, label: '낮은 천장' },
+        { type: 'pane', x: 600, y: 558, rot: 0, params: { h: 40, th: 6, vb: 600 }, label: '유리창', goal: { checks: [{ kind: 'broken' }] } },
+        { type: 'flask', x: 760, y: 562, rot: 0, params: { r: 36, vb: 850 }, label: '꽃병', goal: { checks: [{ kind: 'intact' }] } },
+      ],
+      inventory: { lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 }, plank: { len: 200 } },
+      hints: [
+        '유리창은 600 mm/s 넘게 부딪혀야 깨지고, 꽃병은 850 mm/s가 넘으면 깨져요. 판자의 높이와 기울기로 구슬의 속도를 맞추세요.',
+        '렌즈로 실을 태워 구슬을 떨어뜨리고, 판자를 구슬 아래에 25° 안팎으로 비스듬히 두어 오른쪽으로 굴리세요. 너무 높거나 가파르면 꽃병까지 깨져요.',
+      ],
+      solution: [
+        { type: 'lensConvex', x: 197, y: 120, rot: 0 },
+        { type: 'plank', x: 300, y: 510, rot: 20 },
+      ],
+    },
+    {
+      id: 56, title: '그네 밀기', tools: '평면거울 · 볼록렌즈',
+      clearTitle: '알맞은 순간에 터진 폭죽이 추를 종까지 밀어 올렸어요',
+      brief: '도화선에 불을 붙여, 추가 멀어지는 순간 폭죽이 터지게 해서 <b>종</b>을 울리세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 300, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 바닥에 놓인 도화선: 빛이 닿은 자리부터 60 mm/s로 타 들어가 오른쪽 끝 폭죽을 터뜨린다
+        { type: 'fuse', x: 340, y: 596, rot: 0, params: { len: 200, th: 4, need: 0.8, spot: 10, blastR: 110, blastJ: 1500 }, label: '도화선', goal: { checks: [{ kind: 'burst' }] } },
+        // 흔들리는 추: 왼쪽 30°에서 출발. 폭죽 옆을 지나 멀어질 때 밀려야 종까지 올라간다
+        { type: 'pendulum', x: 600, y: 368, rot: 0, params: { L: 200, r: 12, m: 1, a0: -30 }, label: '추' },
+        { type: 'loadcell', x: 776, y: 491, rot: 90, params: { w: 50 }, label: '종', goal: { checks: [{ kind: 'touch' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { mirror: 1, lensConvex: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 } },
+      hints: [
+        '도화선은 불이 붙은 자리에서 양쪽으로 60 mm/s로 타요. 폭죽에서 먼 곳에 붙일수록 늦게 터져요. 추는 1.4초에 한 번 왕복해요.',
+        '거울(315°)로 빔을 아래로 꺾고 렌즈(90°)로 도화선 한 점에 모으세요. 폭죽은 추가 바로 옆을 지나 멀어지는 순간(약 1.3초, 1.75초, 2.7초, 3.2초)에 터져야 해요. 판독기에 폭발 시각이 나와요.',
+      ],
+      solution: [
+        { type: 'mirror', x: 451, y: 300, rot: 315 },
+        { type: 'lensConvex', x: 451, y: 470, rot: 90 },
+      ],
+    },
+    {
+      id: 57, title: '깨진 물병, 바뀐 빛길', tools: '볼록렌즈 · 판자',
+      clearTitle: '물병을 깨뜨려 빛길을 되찾고 종이를 태웠어요',
+      brief: '빛을 굴절시키는 <b>물병</b>을 구슬로 깨뜨리고, 곧게 나아간 빛으로 <b>종이</b>를 태우세요.',
+      fixed: [
+        { type: 'source', x: 70, y: 240, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        // 물이 든 둥근 병: 빔이 위쪽을 비껴 지나며 아래로 꺾인다. 900 mm/s 넘게 부딪혀야 깨진다
+        { type: 'wall', x: 250, y: 304, rot: 0, params: { w: 60, h: 12 }, label: '받침' },
+        { type: 'flask', x: 250, y: 262, rot: 0, params: { r: 36, vb: 900 }, label: '물병', goal: { checks: [{ kind: 'broken' }] } },
+        // 구슬 선반
+        // 구슬 비탈: 물병 오른쪽 위에서 왼쪽으로 굴러 떨어진다
+        { type: 'wall', x: 410, y: 80, rot: -10, params: { w: 80, h: 12 }, label: '비탈' },
+        { type: 'ball', x: 387, y: 65.8, rot: 0, params: { r: 12 } },
+        { type: 'paper', x: 820, y: 240, rot: 90, params: { w: 60, need: 0.9 }, label: '종이', goal: { checks: [{ kind: 'burnt' }] } },
+        { type: 'wall', x: 500, y: 616, rot: 0, params: { w: 1000, h: 12 } },
+      ],
+      inventory: { lensConvex: 1, plank: 1 },
+      partParams: { lensConvex: { f: 100, h: 40 }, plank: { len: 120 } },
+      hints: [
+        '물병은 물 렌즈라서 비껴 지나는 빛을 크게 꺾어요. 물병이 깨지면 빛은 곧게 나아가요.',
+        '물병은 900 mm/s 넘게 부딪혀야 깨져요. 비탈에서 떨어지는 구슬을 판자(−55° 안팎)로 받아 물병 윗부분으로 세게 꺾어 보내고, 종이 100 mm 앞에 렌즈를 두세요. 판자가 빔을 가리면 안 돼요.',
+      ],
+      solution: [
+        { type: 'plank', x: 350, y: 160, rot: -55 },
+        { type: 'lensConvex', x: 720, y: 240, rot: 0 },
+      ],
+    },
   ];
 
   /* 진자 판정. q: MECH 시뮬레이션의 진자 상태 { struck:{t,speed}|null, maxSwing(°) }
@@ -2475,7 +2772,7 @@ const GAME = (() => {
     return { checks: out, ok: out.every(x => x.ok) };
   }
 
-  return { STAGES, evalGoal, paperHeat, evalCell, evalPend, pinhole, behind };
+  return { STAGES, evalGoal, paperHeat, evalCell, evalPend, evalEvent, pinhole, behind };
 })();
 
 
@@ -2495,24 +2792,40 @@ const MECH = (() => {
   const DEG = Math.PI / 180;
 
   const paramsOf = o => Object.assign({}, PARTS[o.type].defaults, o.params || {});
-  const BOUNCE = { plank: 0.3, loadcell: 0.12, wall: 0.35, lensConvex: 0.55, lensConcave: 0.55, prism: 0.55, prismRight: 0.55, mirror: 0.4, lever: 0.3, slide: 0.3 };
+  const BOUNCE = { plank: 0.3, loadcell: 0.12, wall: 0.35, lensConvex: 0.55, lensConcave: 0.55, prism: 0.55, prismRight: 0.55, mirror: 0.4, lever: 0.3, slide: 0.3, ice: 0.3, flask: 0.4, pane: 0.4, candle: 0.3, boiler: 0.3 };
+
+  /* 빛에 달궈지는 물체: 기준(need) 이상의 빛이 모인 시각 + delay에 일이 일어난다.
+     vanish: 사라진다(종이·실·얼음). 양초는 촛농을 떨어뜨리고, 주전자는 증기를 뿜고, 도화선은 타 들어가 끝의 폭죽을 터뜨린다 */
+  const HEAT = {
+    paper: { delay: 0.7, vanish: true },
+    rope: { delay: 0.7, vanish: true },
+    ice: { delay: 2.0, vanish: true },
+    candle: { delay: 0.8 },
+    boiler: { delay: 1.5 },
+    fuse: { delay: 0.3 },
+  };
+  const BREAK = new Set(['flask', 'pane']);   // 구슬이 vb 이상으로 부딪히거나 폭발 반경에 들면 깨진다
+  const DRIP_DT = 0.1;     // 촛농 방울 간격(s)
+  const STEAM_T = 2.0;     // 증기가 나오는 시간(s)
+  const FUSE_V = 60;       // 도화선이 타 들어가는 속도(mm/s)
 
   // 충돌 도형: 월드 좌표의 볼록 다각형. 프리즘은 삼각형, 나머지는 각 부품의 상자
   // burnAt: 타는 종이 → 사라지는 시각(s). 그때까지는 구슬을 받친다
   // 지레(움직임)와 슬라이드(원호)는 여기 없고 simulate가 따로 다룬다
-  function shapesOf(objs, burnAt) {
+  function shapesOf(objs, vanishAt) {
     const out = [];
     for (const o of objs) {
-      if (o.hidden || o.type === 'ball' || o.type === 'pendulum' || o.type === 'lever' || o.type === 'slide') continue;
-      const until = o.type === 'paper' && burnAt && burnAt.has(o) ? burnAt.get(o) : Infinity;
+      if (o.hidden || o.type === 'ball' || o.type === 'pendulum' || o.type === 'lever' || o.type === 'slide' || o.type === 'rope' || o.type === 'fuse') continue;
+      const until = vanishAt && vanishAt.has(o) ? vanishAt.get(o) : Infinity;
       const p = paramsOf(o);
       const th = o.rot * DEG, c = Math.cos(th), s = Math.sin(th);
       const tx = ([x, y]) => [o.x + x * c - y * s, o.y + x * s + y * c];
       let local;
       if (o.type === 'prism') { const a = p.side / Math.sqrt(3); local = [[0, -a], [p.side / 2, a / 2], [-p.side / 2, a / 2]]; }
       else if (o.type === 'prismRight') { const h = p.side / 2; local = [[-h, -h], [h, h], [-h, h]]; }
+      else if (o.type === 'flask') { local = []; for (let i = 0; i < 16; i++) local.push([p.r * Math.cos(i * Math.PI / 8), p.r * Math.sin(i * Math.PI / 8)]); }
       else { const b = PARTS[o.type].build(p).box; local = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]]; }
-      out.push({ obj: o, pts: local.map(tx), e: BOUNCE[o.type] != null ? BOUNCE[o.type] : 0.35, until });
+      out.push({ obj: o, pts: local.map(tx), e: BOUNCE[o.type] != null ? BOUNCE[o.type] : 0.35, until, brk: BREAK.has(o.type) ? p.vb : 0 });
     }
     return out;
   }
@@ -2557,15 +2870,36 @@ const MECH = (() => {
     b.vx = vt * tx + vn * nx; b.vy = vt * ty + vn * ny;
   }
 
-  function simulate(objs, burnAt) {
-    const shapes = shapesOf(objs, burnAt);
-    const balls = objs.filter(o => o.type === 'ball' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, x: o.x, y: o.y, vx: 0, vy: 0, r: p.r, m: p.m, lost: false }; });
+  function simulate(objs, vanishAt) {
+    const shapes = shapesOf(objs, vanishAt);
+    const breakAt = new Map();
+    const balls = objs.filter(o => o.type === 'ball' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, x: o.x, y: o.y, vx: 0, vy: 0, r: p.r, m: p.m, lost: false, held: 0 }; });
+    // 실 끝(국소 +y 방향 len)에 윗점이 닿아 있는 구슬은 실이 타서 끊어질 때까지 매달려 있다
+    for (const r of objs.filter(o => o.type === 'rope' && !o.hidden)) {
+      const p = paramsOf(r), th = r.rot * DEG, ex = r.x - Math.sin(th) * p.len, ey = r.y + Math.cos(th) * p.len;
+      const until = vanishAt && vanishAt.has(r) ? vanishAt.get(r) : Infinity;
+      for (const b of balls) if (Math.hypot(ex - b.x, ey - (b.y - b.r)) < 6) b.held = Math.max(b.held, until);
+    }
+    // 촛농: 달궈진 양초(dripAt)의 아래 끝에서 n방울이 DRIP_DT 간격으로 떨어진다. 떨어지기 전에는 lost 상태로 숨어 있다
+    for (const o of objs.filter(k => k.type === 'candle' && !k.hidden && k.dripAt != null)) {
+      const p = paramsOf(o), th = o.rot * DEG, r = 3.5, sx = o.x - Math.sin(th) * (p.h / 2 + r + 1), sy = o.y + Math.cos(th) * (p.h / 2 + r + 1);
+      for (let k = 0; k < p.n; k++) balls.push({ obj: o, wax: true, x: sx, y: sy, sx, sy, vx: 0, vy: 0, r, m: p.drop, lost: true, held: 0, born: o.dripAt + k * DRIP_DT });
+    }
+    const jets = objs.filter(o => o.type === 'boiler' && !o.hidden && o.boilAt != null).map(o => {
+      const p = paramsOf(o), th = o.rot * DEG;
+      return { obj: o, c: Math.cos(th), s: Math.sin(th), x0: p.w / 2, x1: p.w / 2 + p.jet, jh: p.jh, a: p.jetA * Math.min(1, o.heatFrac || 0), t0: o.boilAt, t1: o.boilAt + STEAM_T };
+    });
+    const blasts = objs.filter(o => o.type === 'fuse' && !o.hidden && o.blastAt != null).map(o => {
+      const p = paramsOf(o), th = o.rot * DEG;
+      return { obj: o, x: o.x + Math.cos(th) * (p.len + 7), y: o.y + Math.sin(th) * (p.len + 7), R: p.blastR, J: p.blastJ, t: o.blastAt, done: false };
+    });
     const pends = objs.filter(o => o.type === 'pendulum' && !o.hidden).map(o => { const p = paramsOf(o); return { obj: o, px: o.x, py: o.y, L: p.L, r: p.r, m: p.m, a: p.a0 * DEG, w: 0, struck: null, maxSwing: Math.abs(p.a0) }; });
     const cells = objs.filter(o => o.type === 'loadcell' && !o.hidden).map(o => ({ obj: o, hit: null }));
     // 지레: 받침점 둘레 관성 I = m/(3L)·(l1³+l2³), 무게중심은 축에서 s = (l2-l1)/2
     const levers = objs.filter(o => o.type === 'lever' && !o.hidden).map(o => {
       const p = paramsOf(o), L = p.l1 + p.l2;
-      return { obj: o, px: o.x, py: o.y, l1: p.l1, l2: p.l2, th: p.th, m: p.m, I: p.m / (3 * L) * (p.l1 ** 3 + p.l2 ** 3), s: (p.l2 - p.l1) / 2, amin: p.amin * DEG, amax: p.amax * DEG, a: o.rot * DEG, w: 0, lo: false, hi: false, maxTilt: 0 };
+      // sm: 무게 토크 계수 Σm·d (막대 자체 + 굳어 붙은 촛농), loads: 붙은 촛농 [{d, m, t}]
+      return { obj: o, px: o.x, py: o.y, l1: p.l1, l2: p.l2, th: p.th, m: p.m, I: p.m / (3 * L) * (p.l1 ** 3 + p.l2 ** 3), s: (p.l2 - p.l1) / 2, sm: (p.l2 - p.l1) / 2 * p.m, loads: [], amin: p.amin * DEG, amax: p.amax * DEG, a: o.rot * DEG, w: 0, lo: false, hi: false, maxTilt: 0 };
     });
     const slides = objs.filter(o => o.type === 'slide' && !o.hidden).map(o => {
       const p = paramsOf(o);
@@ -2587,7 +2921,7 @@ const MECH = (() => {
       for (const q of pends) { q.w += -(G / q.L) * Math.sin(q.a) * DT; q.w *= 1 - 0.03 * DT; q.a += q.w * DT; }
       // 지레: 막대 자체의 무게 토크 → 회전. 멈춤쇠나 받침(바닥·종이)에 걸리면 그 방향으로는 더 못 돈다
       for (const q of levers) {
-        q.w += q.s * Math.cos(q.a) * q.m * G / q.I * DT;
+        q.w += q.sm * Math.cos(q.a) * G / q.I * DT;
         q.w *= 1 - 0.4 * DT;
         const a0 = q.a;
         q.a += q.w * DT;
@@ -2606,8 +2940,38 @@ const MECH = (() => {
         }
         q.maxTilt = Math.max(q.maxTilt, Math.abs(q.a - q.obj.rot * DEG) / DEG);
       }
+      for (const bl of blasts) {
+        if (bl.done || t < bl.t) continue;
+        bl.done = true;
+        for (const b of balls) {
+          if (b.lost || t < b.held) continue;
+          const dx = b.x - bl.x, dy = b.y - bl.y, d = Math.hypot(dx, dy);
+          if (d > bl.R + b.r || d < 1e-9) continue;
+          if (b.wax) { b.lost = true; continue; }
+          const imp = bl.J * Math.max(0.15, 1 - d / bl.R) / b.m;
+          b.vx += imp * dx / d; b.vy += imp * dy / d;
+        }
+        for (const sh of shapes) if (sh.brk && t < sh.until && circlePoly(bl.x, bl.y, bl.R, sh.pts)) { sh.until = t; breakAt.set(sh.obj, t); }
+        for (const q of pends) {
+          const [qx, qy] = bobPos(q), dx = qx - bl.x, dy = qy - bl.y, d = Math.hypot(dx, dy);
+          if (d > bl.R + q.r || d < 1e-9) continue;
+          const imp = bl.J * Math.max(0.15, 1 - d / bl.R) / q.m, tx = Math.cos(q.a), ty = -Math.sin(q.a);
+          q.w += imp * (dx * tx + dy * ty) / d / q.L;
+        }
+      }
       for (const b of balls) {
-        if (b.lost) continue;
+        if (b.lost) {
+          // 촛농 방울: 제 차례가 되면 양초 아래 끝에서 나타난다
+          if (b.born != null && t >= b.born) { b.lost = false; b.born = null; b.x = b.sx; b.y = b.sy; b.vx = 0; b.vy = 0; }
+          else continue;
+        }
+        if (t < b.held) continue;
+        // 증기: 끓는 주전자 주둥이 앞 구역의 구슬을 분사 방향으로 민다
+        if (!b.wax) for (const j of jets) {
+          if (t < j.t0 || t >= j.t1) continue;
+          const rx = b.x - j.obj.x, ry = b.y - j.obj.y, lx = rx * j.c + ry * j.s, ly = -rx * j.s + ry * j.c;
+          if (lx >= j.x0 && lx <= j.x1 && Math.abs(ly) <= j.jh) { b.vx += j.a * j.c * DT; b.vy += j.a * j.s * DT; }
+        }
         b.vy += G * DT;
         b.x += b.vx * DT; b.y += b.vy * DT;
         for (const sh of shapes) {
@@ -2615,6 +2979,10 @@ const MECH = (() => {
           const c = circlePoly(b.x, b.y, b.r, sh.pts);
           if (!c) continue;
           const speed = Math.hypot(b.vx, b.vy);
+          // 촛농은 닿은 자리에서 굳는다 (지레 위에서만 하중으로 남는다 — 아래 지레 처리)
+          if (b.wax) { b.lost = true; break; }
+          // 깨지는 물체: 충분히 빠른 구슬은 깨뜨리고 그대로 지나간다
+          if (sh.brk && speed >= sh.brk) { sh.until = t; breakAt.set(sh.obj, t); continue; }
           b.x += c.nx * c.d; b.y += c.ny * c.d;
           const vn = b.vx * c.nx + b.vy * c.ny;
           if (vn < 0) {
@@ -2624,12 +2992,14 @@ const MECH = (() => {
           }
           touch(sh, t, speed, 'ball');
         }
+        if (b.lost) continue;
         // 슬라이드: 원호 안쪽 면. 원의 법선으로 풀어 접선 속도가 깨지지 않게 한다
         for (const sl of slides) {
           const dx = b.x - sl.cx, dy = b.y - sl.cy, d = Math.hypot(dx, dy);
           if (d < 1e-9 || d <= sl.R - b.r || d >= sl.R + sl.w + b.r) continue;
           let ang = Math.atan2(dy, dx); while (ang < sl.a0) ang += 2 * Math.PI; while (ang >= sl.a0 + 2 * Math.PI) ang -= 2 * Math.PI;
           if (ang > sl.a1) continue;
+          if (b.wax) { b.lost = true; break; }
           const inner = d < sl.R + sl.w / 2;
           const nx = inner ? -dx / d : dx / d, ny = inner ? -dy / d : dy / d;
           const depth = inner ? d - (sl.R - b.r) : (sl.R + sl.w + b.r) - d;
@@ -2641,10 +3011,17 @@ const MECH = (() => {
             if (e === 0) roll(b, nx, ny);
           }
         }
+        if (b.lost) continue;
         // 지레: 움직이는 막대. 접촉점의 막대 속도를 기준으로 충격량을 주고받는다 (구슬의 무게가 토크가 된다)
         for (const q of levers) {
           const c = circlePoly(b.x, b.y, b.r, leverPts(q));
           if (!c) continue;
+          if (b.wax) {
+            // 촛농이 막대에 굳어 붙는다: 닿은 자리의 팔 좌표 d에 질량이 더해져 토크와 관성이 늘어난다
+            const ux = Math.cos(q.a), uy = Math.sin(q.a), d = (b.x - c.nx * b.r - q.px) * ux + (b.y - c.ny * b.r - q.py) * uy;
+            q.loads.push({ d, m: b.m, t }); q.sm += b.m * d; q.I += b.m * d * d;
+            b.lost = true; break;
+          }
           b.x += c.nx * c.d; b.y += c.ny * c.d;
           const rx = b.x - c.nx * b.r - q.px, ry = b.y - c.ny * b.r - q.py;
           const sx = -q.w * ry, sy = q.w * rx;
@@ -2662,10 +3039,12 @@ const MECH = (() => {
         }
         // 진자 추와의 충돌: 추는 줄에 매여 접선 방향으로만 움직인다.
         // 법선 방향 1차원 충돌로 풀되, 추의 유효 질량은 m/(t·n)² (축이 나머지 충격을 받는다)
+        if (b.lost) continue;
         for (const q of pends) {
           const [qx, qy] = bobPos(q);
           const dx = b.x - qx, dy = b.y - qy, dist = Math.hypot(dx, dy), minD = b.r + q.r;
           if (dist >= minD || dist < 1e-9) continue;
+          if (b.wax) { b.lost = true; break; }
           const nx = dx / dist, ny = dy / dist;
           b.x += nx * (minD - dist); b.y += ny * (minD - dist);
           const tx = Math.cos(q.a), ty = -Math.sin(q.a);
@@ -2686,7 +3065,7 @@ const MECH = (() => {
       // 구슬끼리의 충돌 (탄성, 운동량 보존)
       for (let a = 0; a < balls.length; a++) for (let c2 = a + 1; c2 < balls.length; c2++) {
         const A = balls[a], B = balls[c2];
-        if (A.lost || B.lost) continue;
+        if (A.lost || B.lost || A.wax || B.wax || t < A.held || t < B.held) continue;
         const dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy), minD = A.r + B.r;
         if (dist >= minD || dist < 1e-9) continue;
         const nx = dx / dist, ny = dy / dist, push = (minD - dist) / 2;
@@ -2706,7 +3085,7 @@ const MECH = (() => {
       }
       if (i % 4 === 0) record(t);
     }
-    return { frames, cells, balls, pends, levers, tEnd: T_MAX };
+    return { frames, cells, balls, pends, levers, breakAt, tEnd: T_MAX };
   }
 
   // 재생용: 시각 t의 보간된 프레임
@@ -2719,7 +3098,8 @@ const MECH = (() => {
     return { t, b: A.b.map((v, j) => [v[0] + (B.b[j][0] - v[0]) * f, v[1] + (B.b[j][1] - v[1]) * f, v[2] || B.b[j][2]]), p: A.p.map((v, j) => v + (B.p[j] - v) * f), l: A.l.map((v, j) => v + (B.l[j] - v) * f) };
   }
 
-  const hasBodies = objs => objs.some(o => (o.type === 'ball' || o.type === 'pendulum' || o.type === 'loadcell' || o.type === 'lever') && !o.hidden);
+  const MOVING = new Set(['ball', 'pendulum', 'loadcell', 'lever', 'candle', 'boiler', 'fuse', 'flask', 'pane']);
+  const hasBodies = objs => objs.some(o => MOVING.has(o.type) && !o.hidden);
 
   /* 한 배치의 전체 해답:
      1) 종이가 온전하고 구슬이 제자리에 있는 상태로 추적(Rpre) → 집광 판정 → 타는 종이는 BURN_T에 사라진다.
@@ -2739,25 +3119,47 @@ const MECH = (() => {
   }
   function solve(objs) {
     const live = objs.filter(o => !o.hidden);
-    const papers = live.filter(o => o.type === 'paper');
-    papers.forEach(o => { o.burnt = false; });
-    const burnAt = new Map(), heat = new Map();
-    // 광선 Rk로 아직 안 탄 종이를 판정. 기준을 넘긴 종이는 tBurn에 사라진다. 새로 탄 종이가 있으면 true
-    const judge = (Rk, tBurn) => {
+    const heatables = live.filter(o => HEAT[o.type]);
+    for (const o of live) { o.burnt = false; o.litAt = o.goneAt = o.dripAt = o.boilAt = o.fireAt = o.fireU = o.blastAt = o.heatFrac = undefined; }
+    const vanishAt = new Map(), heat = new Map();   // vanishAt: 사라지는 물체 → 시각 (가열로 타거나 녹는 것 + 깨지는 것)
+    const vanish = (o, t) => { vanishAt.set(o, t); o.goneAt = t; o.burnt = true; };
+    // 기준을 넘긴 물체가 tLit에 달궈졌다고 보고 그 뒤의 일을 정한다
+    const schedule = (o, tLit, h) => {
+      const d = HEAT[o.type].delay;
+      o.litAt = tLit;
+      if (HEAT[o.type].vanish) vanish(o, tLit + d);
+      else if (o.type === 'candle') o.dripAt = tLit + d;
+      else if (o.type === 'boiler') { o.boilAt = tLit + d; o.heatFrac = h.checks[0].frac; }
+      else if (o.type === 'fuse') {
+        const p = paramsOf(o), u = h.u != null ? h.u : 0.5;
+        o.fireAt = tLit + d; o.fireU = u; o.blastAt = o.fireAt + (1 - u) * p.len / FUSE_V;
+        vanish(o, o.blastAt);
+      }
+    };
+    const unschedule = o => { vanishAt.delete(o); o.burnt = false; o.litAt = o.goneAt = o.dripAt = o.boilAt = o.fireAt = o.fireU = o.blastAt = o.heatFrac = undefined; };
+    const lit = o => o.litAt != null;
+    // 광선 Rk로 아직 안 달궈진 물체를 판정. 기준을 넘긴 물체는 tLit에 달궈진 것으로 예정한다. 새로 달궈진 게 있으면 true
+    const judge = (Rk, tLit) => {
       let any = false;
-      for (const o of papers) {
-        if (o.burnt) continue;
+      for (const o of heatables) {
+        if (lit(o)) continue;
         const hits = Rk.sensorHits.get(o) || [];
         const h = { obj: o, hits, ...GAME.paperHeat(o, hits, Rk.emitted) };
         heat.set(o, h);
-        if (h.ok) { o.burnt = true; burnAt.set(o, tBurn); any = true; }
+        if (h.ok) { schedule(o, tLit, h); any = true; }
       }
       return any;
     };
-    // 시각 t의 물체 상태(구슬 위치·지레 각도·그때까지 탄 종이)로 추적
+    // 시각 t에 사라진 물체만 빼고 추적한다
+    const traceGone = (t, objsT) => {
+      for (const [o, tv] of vanishAt) o.burnt = tv <= t;
+      const Rt = OPT.trace(objsT || live);
+      for (const o of vanishAt.keys()) o.burnt = true;
+      return Rt;
+    };
+    // 시각 t의 물체 상태(구슬 위치·지레 각도·그때까지 사라진 것)로 추적
     const traceAt = (M, t) => {
       const f = M ? frameAt(M, t) : null;
-      for (const o of papers) o.burnt = burnAt.has(o) && burnAt.get(o) <= t;
       const objsT = live.map(o => {
         if (!f) return o;
         if (o.type === 'lever') return { ...o, rot: f.l[M.levers.findIndex(k => k.obj === o)] / DEG };
@@ -2765,43 +3167,66 @@ const MECH = (() => {
         const b = f.b[M.balls.findIndex(k => k.obj === o)];
         return b[2] ? null : { ...o, x: b[0], y: b[1] };
       }).filter(Boolean);
-      const Rt = OPT.trace(objsT);
-      for (const o of papers) o.burnt = burnAt.has(o);
-      return Rt;
+      return traceGone(t, objsT);
     };
 
-    // 1) 정적 연쇄
+    // 1) 정적 연쇄: 사건(사라짐) 시각 순으로 다시 추적하며 새로 드러난 물체를 달군다
     const Rpre = OPT.trace(live);
     const rays = [{ t: 0, R: Rpre }];   // 재생 시각별 광선
-    let Rk = Rpre, t = BURN_T;
-    for (let i = 0; i < 6 && judge(Rk, t); i++) { Rk = OPT.trace(live); rays.push({ t, R: Rk }); t += BURN_T; }
-    // 2) 역학 → 3) 최종 추적. 드러난 종이가 더 타면, 빛이 처음 닿은 시각을 찾아 그때부터 BURN_T 뒤에 태우고 다시
+    let Rk = Rpre, tNow = 0;
+    judge(Rk, 0);
+    for (let i = 0; i < 12; i++) {
+      let next = Infinity;
+      for (const tv of vanishAt.values()) if (tv > tNow && tv < next) next = tv;
+      if (next === Infinity) break;
+      tNow = next;
+      Rk = traceGone(tNow);
+      rays.push({ t: tNow, R: Rk });
+      judge(Rk, tNow);
+    }
+    // 2) 역학 → 3) 최종 추적. 구슬이 비키거나 지레가 기울거나 유리가 깨져 드러난 물체가 더 달궈지면,
+    //    빛이 처음 닿은 시각을 찾아 그때부터 예정하고 다시
     let M = null, R = Rk, tFinal = rays[rays.length - 1].t;
-    for (let i = 0; i < 3; i++) {
-      M = hasBodies(live) ? simulate(live, burnAt) : null;
-      if (!(burnAt.size || (M && M.balls.length))) break;
-      R = M ? traceAt(M, T_MAX) : OPT.trace(live);
+    for (let i = 0; i < 4; i++) {
+      M = hasBodies(live) ? simulate(live, vanishAt) : null;
+      if (M) for (const [o, t] of M.breakAt) {
+        if (vanishAt.has(o) && vanishAt.get(o) <= t) continue;
+        vanish(o, t);
+        // 깨진 순간부터 빛길이 바뀐다
+        if (!rays.some(k => k.t === t)) rays.push({ t, R: traceGone(t) });
+        tFinal = Math.max(tFinal, t);
+      }
+      if (!(vanishAt.size || (M && M.balls.length))) break;
+      R = M ? traceAt(M, T_MAX) : traceGone(T_MAX);
       if (!M) break;
-      const tSettle = settleTime(M), tBurn = tSettle + BURN_T;
-      const before = new Set(burnAt.keys());
-      if (!judge(R, tBurn)) break;
-      const fresh = papers.filter(o => burnAt.has(o) && !before.has(o));
+      const tSettle = settleTime(M);
+      const before = new Set(heatables.filter(lit));
+      if (!judge(R, tSettle)) break;
+      const fresh = heatables.filter(o => lit(o) && !before.has(o));
       // 빛이 닿기 시작한 시각: 마지막 정적 단계부터 1/8초 간격으로 훑는다
       let tLit = tSettle, Rlit = null;
       for (let tt = tFinal; tt < tSettle; tt += 0.125) {
-        for (const o of fresh) burnAt.delete(o);
+        for (const o of fresh) unschedule(o);
         const Rt = traceAt(M, tt);
-        for (const o of fresh) burnAt.set(o, tBurn);
+        for (const o of fresh) schedule(o, tSettle, heat.get(o));
         if (fresh.every(o => GAME.paperHeat(o, Rt.sensorHits.get(o) || [], Rt.emitted).ok)) { tLit = tt; Rlit = Rt; break; }
       }
-      for (const o of fresh) burnAt.set(o, tLit + BURN_T);
+      for (const o of fresh) { unschedule(o); const Rh = Rlit || R; const h = { obj: o, hits: Rh.sensorHits.get(o) || [], ...GAME.paperHeat(o, Rh.sensorHits.get(o) || [], Rh.emitted) }; heat.set(o, h); schedule(o, tLit, h); }
       if (Rlit && tLit > tFinal) rays.push({ t: tLit, R: Rlit });
-      tFinal = tLit + BURN_T;
+      tFinal = Math.max(tFinal, ...fresh.map(o => o.goneAt != null ? o.goneAt : o.litAt + HEAT[o.type].delay));
     }
-    for (const o of papers) o.burnt = burnAt.has(o);
+    for (const o of vanishAt.keys()) o.burnt = true;
+    rays.sort((a, b) => a.t - b.t);
     const last = rays[rays.length - 1];
     if (last.t === tFinal) last.R = R; else rays.push({ t: tFinal, R });
-    return { Rpre, R, M, rays, paperRes: papers.map(o => heat.get(o)), burnt: burnAt.size > 0 };
+    // 화면이 계속 움직여야 하는 마지막 시각: 사라짐·촛농·증기·폭발 중 가장 늦은 것
+    let tLast = 0;
+    for (const o of live) {
+      if (o.goneAt != null) tLast = Math.max(tLast, o.goneAt + 0.7);
+      if (o.dripAt != null) tLast = Math.max(tLast, o.dripAt + paramsOf(o).n * DRIP_DT + 0.5);
+      if (o.boilAt != null) tLast = Math.max(tLast, o.boilAt + STEAM_T);
+    }
+    return { Rpre, R, M, rays, paperRes: heatables.map(o => heat.get(o)), burnt: vanishAt.size > 0, tLast };
   }
 
   /* ---------- 단단한 배치 ----------
@@ -2847,7 +3272,11 @@ const MECH = (() => {
       polys.push([[o.x, o.y + 2], [o.x - 14, o.y + 26], [o.x + 14, o.y + 26]]); // 받침대
       polys.push([[o.x - 20, o.y + 24], [o.x + 20, o.y + 24], [o.x + 20, o.y + 30], [o.x - 20, o.y + 30]]);
     } else if (o.type === 'slide') polys.push(...slideQuads(o));
-    else polys.push(shapesOf([o], null)[0].pts);
+    else if (o.type === 'rope' || o.type === 'fuse') {
+      // 구슬과는 부딪히지 않지만 자리는 차지한다
+      const b = PARTS[o.type].build(p).box, th = o.rot * DEG, c = Math.cos(th), s = Math.sin(th);
+      polys.push([[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]].map(([x, y]) => [o.x + x * c - y * s, o.y + x * s + y * c]));
+    } else { const sh = shapesOf([o], null); if (sh.length) polys.push(sh[0].pts); }
     return { polys, circles };
   }
 
@@ -2869,7 +3298,7 @@ const MECH = (() => {
     return null;
   }
 
-  return { G, T_MAX, BURN_T, simulate, solve, frameAt, hasBodies, circlePoly, shapesOf, solidOf, overlaps };
+  return { G, T_MAX, BURN_T, HEAT, BREAK, DRIP_DT, STEAM_T, FUSE_V, simulate, solve, frameAt, hasBodies, circlePoly, shapesOf, solidOf, overlaps };
 })();
 
 </script>
@@ -2898,6 +3327,7 @@ const MECH = (() => {
     ['광학', ['prism', 'prismRight', 'lensConvex', 'lensConcave', 'mirror', 'mirrorConcave', 'mirrorConvex', 'splitter', 'filter:b', 'filter:g', 'filter:r', 'filter:cutLo', 'filter:cutHi', 'slit']],
     ['광원·장치', ['source', 'sensor', 'wall', 'wall:post', 'paper', 'paper:r', 'paper:g', 'paper:b', 'loadcell']],
     ['역학', ['plank', 'plank:long', 'ball', 'ball:pb', 'pendulum', 'pendulum:heavy', 'lever', 'slide']],
+    ['파괴', ['ice', 'rope', 'candle', 'boiler', 'fuse', 'flask', 'pane']],
   ];
   const LAB_DEFS = {
     'filter:b': { type: 'filter', params: { min: 450, max: 495 }, name: '파랑 필터' },
@@ -2922,6 +3352,13 @@ const MECH = (() => {
     'pendulum:heavy': { type: 'pendulum', params: { L: 190, r: 16, m: 4 }, name: '무거운 진자', goal: { checks: [{ kind: 'struck' }, { kind: 'swing', min: 10 }] } },
     lever: { type: 'lever', params: { l1: 150, l2: 150, th: 8, m: 2, amin: -40, amax: 40 }, name: '지레' },
     slide: { type: 'slide', params: { R: 150, w: 10, a0: 135, a1: 20 }, name: '슬라이드' },
+    ice: { type: 'ice', params: {}, name: '얼음', goal: { checks: [{ kind: 'melted' }] } },
+    rope: { type: 'rope', params: {}, name: '실', goal: { checks: [{ kind: 'cut' }] } },
+    candle: { type: 'candle', params: {}, name: '양초', goal: { checks: [{ kind: 'dripped' }] } },
+    boiler: { type: 'boiler', params: {}, name: '주전자', goal: { checks: [{ kind: 'boiled' }] } },
+    fuse: { type: 'fuse', params: {}, name: '도화선', goal: { checks: [{ kind: 'burst' }] } },
+    flask: { type: 'flask', params: {}, name: '둥근 물병', goal: { checks: [{ kind: 'broken' }] } },
+    pane: { type: 'pane', params: {}, name: '유리판', goal: { checks: [{ kind: 'broken' }] } },
   };
   // 자유 실험실에서 선택한 부품의 값 조정: [매개변수, 이름, 최소, 최대, 간격, 표시]
   const fmtMm = v => `${v} mm`, fmtDg = v => `${v}°`, fmtN = v => `${v}`;
@@ -2944,11 +3381,19 @@ const MECH = (() => {
     filter: [['min', '하한', 400, 700, 5, v => `${v} nm`], ['max', '상한', 400, 700, 5, v => `${v} nm`], ['h', '반높이', 8, 60, 2, fmtMm]],
     prism: [['side', '한 변', 60, 160, 10, fmtMm]],
     prismRight: [['side', '한 변', 40, 140, 10, fmtMm]],
+    ice: [['w', '가로', 20, 160, 4, fmtMm], ['h', '세로', 16, 120, 4, fmtMm], ['need', '기준 세기', 0.1, 1, 0.05, v => `${Math.round(v * 100)}%`]],
+    rope: [['len', '길이', 30, 300, 10, fmtMm], ['need', '기준 세기', 0.1, 1, 0.05, v => `${Math.round(v * 100)}%`]],
+    candle: [['h', '높이', 30, 120, 4, fmtMm], ['n', '촛농 방울 수', 4, 60, 2, fmtN], ['need', '기준 세기', 0.1, 1, 0.05, v => `${Math.round(v * 100)}%`]],
+    boiler: [['jet', '증기 거리', 60, 400, 10, fmtMm], ['jetA', '증기 세기', 500, 6000, 100, fmtN], ['need', '기준 세기', 0.1, 1, 0.05, v => `${Math.round(v * 100)}%`]],
+    fuse: [['len', '길이', 40, 400, 10, fmtMm], ['blastR', '폭발 반경', 40, 200, 10, fmtMm], ['blastJ', '폭발 세기', 200, 2500, 100, fmtN]],
+    flask: [['r', '반지름', 16, 70, 2, fmtMm], ['vb', '깨지는 속도', 100, 1500, 50, v => `${v} mm/s`]],
+    pane: [['h', '반높이', 16, 120, 4, fmtMm], ['vb', '깨지는 속도', 100, 1500, 50, v => `${v} mm/s`]],
   };
-  const LAB_LABELED = new Set(['sensor', 'paper', 'loadcell', 'pendulum']); // 판독기에 나오는 장치는 번호를 붙여 구분한다
-  const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0, plank: 0 };
+  const LAB_LABELED = new Set(['sensor', 'paper', 'loadcell', 'pendulum', 'ice', 'rope', 'candle', 'boiler', 'fuse', 'flask', 'pane']); // 판독기에 나오는 장치는 번호를 붙여 구분한다
+  const DEFAULT_ROT = { prism: 22, prismRight: 0, lensConvex: 0, lensConcave: 0, mirror: 0, mirrorConcave: 0, mirrorConvex: 0, splitter: 45, filter: 0, slit: 0, plank: 0, candle: 0 };
   const BODY_TYPES = new Set(['ball', 'pendulum', 'lever']); // 시뮬레이션 상태로 그리는 부품
-  const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell', 'lever', 'slide']);
+  const NO_PIN = new Set(['source', 'sensor', 'ball', 'pendulum', 'paper', 'loadcell', 'lever', 'slide', 'ice', 'rope', 'candle', 'boiler', 'fuse', 'flask', 'pane']);
+  const HEAT = MECH.HEAT, BREAKABLE = MECH.BREAK;
 
   /* ---------- 상태 ---------- */
   let S = null;
@@ -2959,6 +3404,7 @@ const MECH = (() => {
   let paperRes = [];         // 종이별 집광 판정 (타기 전 광선 기준)
   let rays = [];             // 재생 시각별 광선 [{ t, R }] — 종이가 탈 때마다 바뀐다
   let hasBurn = false;
+  let tLast = 0;             // 화면이 계속 바뀌는 마지막 시뮬레이션 시각(사라짐·촛농·증기·폭발)
   let replayT0 = 0;          // 재생 시작 시각 (performance.now)
   const BURN_T = MECH.BURN_T;
   let dirty = true;
@@ -3036,7 +3482,7 @@ const MECH = (() => {
   function retrace() {
     // 광학(타기 전/후) + 역학을 한 번에 푼다. 센서는 최종 상태의 광선(R)으로 판정한다
     const sol = MECH.solve(S.objs);
-    R = sol.R; M = sol.M; rays = sol.rays; paperRes = sol.paperRes; hasBurn = sol.burnt;
+    R = sol.R; M = sol.M; rays = sol.rays; paperRes = sol.paperRes; hasBurn = sol.burnt; tLast = sol.tLast || 0;
     replayT0 = performance.now();
     evaluate();
     dirty = true;
@@ -3055,9 +3501,15 @@ const MECH = (() => {
         const res = { obj: o, hits, total: hits.reduce((a, h) => a + h.I, 0) };
         if (o.goal) { const g = GAME.evalGoal(o.goal, hits, R.emitted); res.checks = g.checks; res.ok = g.ok; }
         evalRes.push(res);
-      } else if (o.type === 'paper' && !o.hidden) {
+      } else if (HEAT[o.type] && !o.hidden) {
+        // 종이·실·얼음·양초·주전자·도화선: 가열 판정 (+ 목표가 있으면 그 사건 판정)
         const pr = paperRes.find(r => r.obj === o);
-        evalRes.push({ obj: o, hits: pr.hits, checks: pr.checks, ok: pr.ok, reflected: pr.reflected });
+        const res = { obj: o, hits: pr.hits, checks: pr.checks.slice(), ok: pr.ok, reflected: pr.reflected, u: pr.u };
+        if (o.goal) { const g = GAME.evalEvent(o.goal, o, pr); res.checks = res.checks.concat(g.checks); res.ok = res.ok && g.ok; }
+        evalRes.push(res);
+      } else if (BREAKABLE.has(o.type) && o.goal && !o.hidden) {
+        const g = GAME.evalEvent(o.goal, o, null);
+        evalRes.push({ obj: o, hits: [], checks: g.checks, ok: g.ok });
       } else if (o.type === 'loadcell' && o.goal && !o.hidden) {
         const cell = M && M.cells.find(k => k.obj === o);
         const g = GAME.evalCell(o.goal, cell ? cell.hit : null);
@@ -3076,7 +3528,7 @@ const MECH = (() => {
   const replayDone = () => !M || simTime() >= M.tEnd;
   // 재생 중 보여줄 광선: 종이가 타기 전에는 구슬이 빛을 막고 있던 상태, 연쇄로 타면 단계별로 바뀐다
   function raysNow() {
-    if (!M || !hasBurn) return R;
+    if (!hasBurn) return R;
     const t = replayTime();
     let out = R;
     for (const k of rays) if (k.t <= t) out = k.R; else break;
@@ -3086,7 +3538,7 @@ const MECH = (() => {
   function lastEventMs() {
     if (!M) return 0;
     const ts = M.cells.filter(k => k.hit).map(k => k.hit.t);
-    return ts.length ? Math.max(...ts) * 1000 : 0;
+    return Math.max(ts.length ? Math.max(...ts) * 1000 : 0, tLast * 1000);
   }
 
   function allGoalsMet() {
@@ -3189,7 +3641,7 @@ const MECH = (() => {
 
   function loop() {
     if (M && !replayDone()) dirty = true;
-    else if (hasBurn && replayTime() < BURN_T + 0.3) dirty = true;
+    else if (hasBurn && replayTime() < Math.max(BURN_T, tLast) + 0.3) dirty = true;
     if (dirty) { dirty = false; render(); }
     requestAnimationFrame(loop);
   }
@@ -3451,8 +3903,185 @@ const MECH = (() => {
         case 'paper': drawPaper(c, o, p, px); break;
         case 'loadcell': drawLoadcell(c, o, p, px); break;
         case 'slide': drawSlide(c, p, px); break;
+        case 'ice': drawIce(c, o, p, px); break;
+        case 'flask': drawFlask(c, o, p, px); break;
+        case 'pane': drawPane(c, o, p, px); break;
+        case 'rope': drawRope(c, o, p, px); break;
+        case 'candle': drawCandle(c, o, p, px); break;
+        case 'boiler': drawBoiler(c, o, p, px); break;
+        case 'fuse': drawFuse(c, o, p, px); break;
       }
     });
+  }
+
+  /* ---------- 파괴 장치 그리기 (시뮬레이션 시각에 따라 녹고 깨지고 타고 끓는다) ---------- */
+  const evt = (t0, t1) => { const t = simTime(); return t0 == null || t < t0 ? 0 : t1 == null || t1 <= t0 ? 1 : Math.min(1, (t - t0) / (t1 - t0)); };
+
+  // 얼음: 반투명 덩이. 달궈지면(litAt→goneAt) 녹아 작아지고, 사라진 뒤엔 물웅덩이만 남는다
+  function drawIce(c, o, p, px) {
+    const hw = p.w / 2, hh = p.h / 2, t = simTime();
+    if (o.goneAt != null && t >= o.goneAt) {
+      c.beginPath(); c.ellipse(0, hh - 1, hw * 1.15, 2.5, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(140,190,240,0.35)'; c.fill();
+      return;
+    }
+    const k = evt(o.litAt, o.goneAt), sc = 1 - 0.55 * k;
+    c.save(); c.translate(0, hh * (1 - sc)); c.scale(sc, sc);
+    roundRect(c, -hw, -hh, p.w, p.h, 4);
+    const g = c.createLinearGradient(-hw, -hh, hw, hh); g.addColorStop(0, 'rgba(205,238,255,0.55)'); g.addColorStop(1, 'rgba(120,180,235,0.32)');
+    c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(225,245,255,0.9)'; c.lineWidth = 1.3 * px; c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = px;
+    c.beginPath(); c.moveTo(-hw * 0.6, -hh * 0.5); c.lineTo(-hw * 0.1, hh * 0.1); c.lineTo(hw * 0.4, -hh * 0.3); c.moveTo(hw * 0.2, hh * 0.6); c.lineTo(hw * 0.6, hh * 0.1); c.stroke();
+    c.restore();
+    if (k > 0) {
+      c.fillStyle = 'rgba(160,210,255,0.75)';
+      for (let i = -1; i <= 1; i++) { const y = hh + 2 + ((t * 70 + i * 23) % 18); c.beginPath(); c.arc(i * hw * 0.5, y, 1.7, 0, Math.PI * 2); c.fill(); }
+    }
+  }
+
+  // 둥근 물병: 물이 든 유리 공. 깨지면 조각이 흩어지고 물이 쏟아진다
+  function drawFlask(c, o, p, px) {
+    const t = simTime();
+    if (o.goneAt != null && t >= o.goneAt) {
+      const k = Math.min(1, (t - o.goneAt) / 0.6);
+      c.strokeStyle = `rgba(205,232,255,${0.9 * (1 - k)})`; c.lineWidth = 1.2 * px; c.beginPath();
+      for (let i = 0; i < 7; i++) { const a = i * 0.9, d = p.r * (0.4 + 1.3 * k), x = Math.cos(a) * d, y = Math.sin(a) * d + 40 * k * k; c.moveTo(x, y); c.lineTo(x + 6 * Math.cos(a + 1), y + 6 * Math.sin(a + 1)); }
+      c.stroke();
+      c.beginPath(); c.ellipse(0, p.r + 3, p.r * (0.8 + 0.8 * k), 2.5, 0, 0, Math.PI * 2); c.fillStyle = `rgba(140,190,240,${0.4 * Math.min(1, k * 2)})`; c.fill();
+      return;
+    }
+    c.beginPath(); c.arc(0, 0, p.r, 0, Math.PI * 2);
+    const g = c.createRadialGradient(-p.r * 0.3, -p.r * 0.3, p.r * 0.1, 0, 0, p.r);
+    g.addColorStop(0, 'rgba(210,240,255,0.36)'); g.addColorStop(1, 'rgba(120,180,235,0.22)');
+    c.fillStyle = g; c.fill(); c.strokeStyle = C.glassEdge; c.lineWidth = 1.3 * px; c.stroke();
+    c.beginPath(); c.moveTo(-5, -p.r + 1); c.lineTo(-5, -p.r - 9); c.moveTo(5, -p.r + 1); c.lineTo(5, -p.r - 9); c.strokeStyle = C.glassEdge; c.lineWidth = px; c.stroke();
+    c.beginPath(); c.moveTo(-p.r * 0.9, -p.r * 0.42); c.lineTo(p.r * 0.9, -p.r * 0.42); c.strokeStyle = 'rgba(220,245,255,0.55)'; c.stroke();
+  }
+
+  // 유리판: 틀에 끼운 얇은 유리. 깨지면 조각이 떨어진다
+  function drawPane(c, o, p, px) {
+    const t = simTime(), ht = p.th / 2;
+    if (o.goneAt != null && t >= o.goneAt) {
+      const k = Math.min(1, (t - o.goneAt) / 0.6);
+      c.strokeStyle = `rgba(205,232,255,${0.9 * (1 - k)})`; c.lineWidth = 1.2 * px; c.beginPath();
+      for (let i = 0; i < 8; i++) { const y = -p.h + (i + 0.5) * p.h / 4, dx = (i % 2 ? 1 : -1) * 30 * k; c.moveTo(dx - 4, y + 50 * k * k); c.lineTo(dx + 4, y + 8 + 50 * k * k); }
+      c.stroke();
+      c.fillStyle = '#2b313a'; c.fillRect(-ht - 2, -p.h - 5, p.th + 4, 5); c.fillRect(-ht - 2, p.h, p.th + 4, 5);
+      return;
+    }
+    c.beginPath(); c.rect(-ht, -p.h, p.th, 2 * p.h); glassStyle(c, px, -p.h, p.h);
+    c.strokeStyle = 'rgba(255,255,255,0.18)'; c.lineWidth = px; c.beginPath(); c.moveTo(-ht + 1, -p.h + 6); c.lineTo(-ht + 1, p.h - 6); c.stroke();
+    c.fillStyle = '#2b313a'; c.fillRect(-ht - 2, -p.h - 5, p.th + 4, 5); c.fillRect(-ht - 2, p.h, p.th + 4, 5);
+  }
+
+  // 실: 고리에서 늘어진 끈. 달궈지면 불씨가 보이고, 끊어지면 사라진다
+  function drawRope(c, o, p, px) {
+    const t = simTime();
+    c.beginPath(); c.arc(0, 0, 3, 0, Math.PI * 2); c.fillStyle = '#7b8594'; c.fill();
+    if (o.goneAt != null && t >= o.goneAt) {
+      const k = Math.min(1, (t - o.goneAt) / 0.4);
+      c.strokeStyle = `rgba(255,160,60,${0.8 * (1 - k)})`; c.lineWidth = 2 * px; c.beginPath(); c.moveTo(0, 3); c.lineTo(0, 3 + 10 * (1 - k)); c.stroke();
+      return;
+    }
+    c.beginPath(); c.moveTo(0, 3); c.lineTo(0, p.len); c.strokeStyle = '#c9b48a'; c.lineWidth = Math.max(p.th, 2 * px); c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = px; c.beginPath(); for (let y = 6; y < p.len; y += 6) { c.moveTo(-1.5, y); c.lineTo(1.5, y + 3); } c.stroke();
+    if (o.litAt != null && t >= o.litAt) {
+      const res = evalRes.find(r => r.obj === o), y = (res && res.u != null ? res.u : 0.5) * p.len;
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const g = c.createRadialGradient(0, y, 0, 0, y, 12); g.addColorStop(0, 'rgba(255,170,60,0.85)'); g.addColorStop(1, 'rgba(255,120,30,0)');
+      c.fillStyle = g; c.fillRect(-14, y - 14, 28, 28); c.restore();
+    }
+  }
+
+  // 양초: 고리 받침에 끼운 초. 달궈지면 윗면이 녹아 빛나고, 촛농이 떨어질수록 짧아진다
+  function drawCandle(c, o, p, px) {
+    const t = simTime(), hw = p.w / 2, hh = p.h / 2;
+    const lit = o.litAt != null && t >= o.litAt, k = o.dripAt != null && t >= o.dripAt ? Math.min(1, (t - o.dripAt) / (p.n * MECH.DRIP_DT)) : 0;
+    const top = -hh + k * p.h * 0.6;
+    c.strokeStyle = '#6b7684'; c.lineWidth = 2 * px; c.beginPath(); c.moveTo(-hw - 5, hh - 8); c.lineTo(-hw - 5, hh + 1); c.lineTo(-4, hh + 1); c.moveTo(4, hh + 1); c.lineTo(hw + 5, hh + 1); c.lineTo(hw + 5, hh - 8); c.stroke();
+    roundRect(c, -hw, top, p.w, hh - top, 3);
+    const g = c.createLinearGradient(-hw, 0, hw, 0); g.addColorStop(0, '#f1e8d0'); g.addColorStop(0.5, '#fff8e6'); g.addColorStop(1, '#d6c8a8');
+    c.fillStyle = g; c.fill(); c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = px; c.stroke();
+    c.strokeStyle = '#3a3027'; c.lineWidth = 1.5 * px; c.beginPath(); c.moveTo(0, top); c.lineTo(0, top - 6); c.stroke();
+    if (lit) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const gg = c.createRadialGradient(0, top - 4, 0, 0, top - 4, 16); gg.addColorStop(0, 'rgba(255,190,80,0.75)'); gg.addColorStop(1, 'rgba(255,140,40,0)');
+      c.fillStyle = gg; c.fillRect(-18, top - 22, 36, 36); c.restore();
+      c.beginPath(); c.ellipse(0, top + 1, hw * 0.8, 2, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(255,232,185,0.9)'; c.fill();
+    }
+    if (k > 0 && k < 1) { c.beginPath(); c.arc(0, hh + 3, 3, 0, Math.PI * 2); c.fillStyle = '#fff3d6'; c.fill(); }
+  }
+
+  // 주전자: 몸통·뚜껑·주둥이(국소 +x). 달궈지면 기포가 오르고, 끓으면 주둥이에서 증기가 분다
+  function drawBoiler(c, o, p, px) {
+    const t = simTime(), hw = p.w / 2, hh = p.h / 2;
+    const lit = o.litAt != null && t >= o.litAt, boil = o.boilAt != null && t >= o.boilAt && t < o.boilAt + MECH.STEAM_T;
+    roundRect(c, -hw, -hh, p.w, p.h, 6);
+    const g = c.createLinearGradient(0, -hh, 0, hh); g.addColorStop(0, '#9aa5b4'); g.addColorStop(0.5, '#5f6873'); g.addColorStop(1, '#2b323c');
+    c.fillStyle = g; c.fill(); c.strokeStyle = '#151a20'; c.lineWidth = px; c.stroke();
+    roundRect(c, -8, -hh - 6, 16, 6, 2); c.fillStyle = '#3a424d'; c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(hw - 1, -9); c.lineTo(hw + 14, -13); c.lineTo(hw + 14, -3); c.lineTo(hw - 1, 4); c.closePath(); c.fillStyle = '#5f6873'; c.fill(); c.stroke();
+    c.beginPath(); c.rect(-hw + 8, -hh * 0.25, p.w - 16, hh * 0.95); c.fillStyle = 'rgba(120,180,235,0.35)'; c.fill(); c.strokeStyle = 'rgba(205,232,255,0.5)'; c.stroke();
+    if (lit) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const gg = c.createRadialGradient(0, hh, 0, 0, hh, hw); gg.addColorStop(0, 'rgba(255,150,60,0.45)'); gg.addColorStop(1, 'rgba(255,120,30,0)');
+      c.fillStyle = gg; c.fillRect(-hw, 0, p.w, hh + 10); c.restore();
+      c.fillStyle = 'rgba(255,255,255,0.6)';
+      for (let i = 0; i < 4; i++) { const y = hh * 0.65 - ((t * 40 + i * 13) % (hh * 0.85)); c.beginPath(); c.arc(-hw + 14 + i * (p.w - 28) / 3, y, 1.5, 0, Math.PI * 2); c.fill(); }
+    }
+    if (boil) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 9; i++) {
+        const d = (t * 110 + i * 23) % p.jet, x = hw + 14 + d, r = 5 + d * 0.08, a = 0.32 * (1 - d / p.jet);
+        c.beginPath(); c.arc(x, -6 + Math.sin(d * 0.08 + i) * 5, r, 0, Math.PI * 2); c.fillStyle = `rgba(230,240,255,${a})`; c.fill();
+      }
+      c.restore();
+    }
+  }
+
+  // 도화선: 끈과 끝의 폭죽. 불이 붙은 자리부터 양쪽으로 타 들어가고, 폭죽에 닿으면 번쩍 터진다
+  function drawFuse(c, o, p, px) {
+    const t = simTime(), fire = o.fireAt != null && t >= o.fireAt, blast = o.blastAt != null && t >= o.blastAt;
+    const x0 = (o.fireU != null ? o.fireU : 0.5) * p.len, burnt = fire ? (t - o.fireAt) * MECH.FUSE_V : 0;
+    const a = Math.max(0, x0 - burnt), b = Math.min(p.len, x0 + burnt);
+    c.lineCap = 'round';
+    c.strokeStyle = '#8a7a5a'; c.lineWidth = Math.max(p.th, 2 * px); c.beginPath(); c.moveTo(0, 0); c.lineTo(p.len, 0); c.stroke();
+    c.strokeStyle = 'rgba(0,0,0,0.3)'; c.lineWidth = px; c.beginPath(); for (let x = 4; x < p.len; x += 6) { c.moveTo(x, -1.5); c.lineTo(x + 3, 1.5); } c.stroke();
+    if (fire) {
+      c.strokeStyle = '#2a241c'; c.lineWidth = Math.max(p.th, 2 * px); c.beginPath(); c.moveTo(a, 0); c.lineTo(b, 0); c.stroke();
+      if (!blast) {
+        c.save(); c.globalCompositeOperation = 'lighter';
+        for (const x of [a, b]) {
+          if (x <= 0 || x >= p.len) continue;
+          const g = c.createRadialGradient(x, 0, 0, x, 0, 10); g.addColorStop(0, 'rgba(255,230,120,0.95)'); g.addColorStop(1, 'rgba(255,120,30,0)');
+          c.fillStyle = g; c.fillRect(x - 12, -12, 24, 24);
+        }
+        c.restore();
+      }
+    }
+    if (!blast) {
+      roundRect(c, p.len, -7, 14, 14, 2); c.fillStyle = '#c9402f'; c.fill(); c.strokeStyle = '#3a1410'; c.lineWidth = px; c.stroke();
+      c.fillStyle = '#f3c447'; c.fillRect(p.len + 2, -1, 10, 2);
+    } else {
+      const k = Math.min(1, (t - o.blastAt) / 0.6), cx = p.len + 7;
+      if (k < 1) {
+        c.save(); c.globalCompositeOperation = 'lighter';
+        const rr = p.blastR * (0.25 + 0.75 * Math.sqrt(k));
+        const g = c.createRadialGradient(cx, 0, 0, cx, 0, rr);
+        g.addColorStop(0, `rgba(255,250,230,${0.95 * (1 - k)})`); g.addColorStop(0.35, `rgba(255,200,90,${0.7 * (1 - k)})`); g.addColorStop(1, 'rgba(255,110,30,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(cx, 0, rr, 0, Math.PI * 2); c.fill();
+        // 충격파 고리
+        c.strokeStyle = `rgba(255,230,170,${0.8 * (1 - k)})`; c.lineWidth = 2.5 * px; c.beginPath(); c.arc(cx, 0, p.blastR * k, 0, Math.PI * 2); c.stroke();
+        c.restore();
+      }
+      // 그을은 자국
+      c.fillStyle = 'rgba(0,0,0,0.35)'; c.beginPath(); c.ellipse(cx, 2, 14, 4, 0, 0, Math.PI * 2); c.fill();
+    }
+  }
+
+  // 촛농 방울
+  function drawWax(c, x, y, r, px) {
+    c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = '#fff3d6'; c.fill();
+    c.strokeStyle = 'rgba(120,90,40,0.5)'; c.lineWidth = px; c.stroke();
   }
 
   // 슬라이드: 원호 띄. 구슬은 안쪽 면을 탄다
@@ -3474,7 +4103,7 @@ const MECH = (() => {
   }
 
   // 지레: 받침대(고정) + 기울어지는 막대
-  function drawLever(c, o, p, a, px) {
+  function drawLever(c, o, p, a, px, loads) {
     c.save(); c.translate(o.x, o.y);
     // 받침대
     c.beginPath(); c.moveTo(0, 2); c.lineTo(-14, 26); c.lineTo(14, 26); c.closePath();
@@ -3494,6 +4123,8 @@ const MECH = (() => {
     for (let i = -3; i <= 3; i++) { const y = i * ht / 3.2; c.moveTo(-p.l1, y); c.bezierCurveTo(-p.l1 / 3, y + 1.5, p.l2 / 3, y - 1.5, p.l2, y); }
     c.stroke(); c.restore();
     roundRect(c, -p.l1, -ht, L, p.th, 2); c.strokeStyle = '#3d2a14'; c.lineWidth = px; c.stroke();
+    // 굳어 붙은 촛농
+    if (loads) { const now = simTime(); for (const L of loads) { if (L.t > now) continue; c.beginPath(); c.ellipse(L.d, -ht - 1.5, 4.5, 2.8, 0, 0, Math.PI * 2); c.fillStyle = '#fff3d6'; c.fill(); c.strokeStyle = 'rgba(120,90,40,0.5)'; c.lineWidth = px; c.stroke(); } }
     // 축 핀
     c.beginPath(); c.arc(0, 0, 3.2, 0, Math.PI * 2); c.fillStyle = '#9aa5b4'; c.fill(); c.strokeStyle = '#151a20'; c.lineWidth = px; c.stroke();
     c.restore();
@@ -3522,7 +4153,7 @@ const MECH = (() => {
     const rb = p.reflect;
     const tint = rb ? colOf((rb[0] + rb[1]) / 2) : null;
     const paperFill = tint ? `rgba(${Math.round(120 + tint[0] * 0.5)},${Math.round(120 + tint[1] * 0.5)},${Math.round(120 + tint[2] * 0.5)},0.95)` : '#d9d2c0';
-    if (!o.burnt) {
+    if (!o.burnt || (o.litAt != null && simTime() < o.litAt)) {
       c.beginPath(); c.rect(-hw, -ht, p.w, p.th); c.fillStyle = paperFill; c.fill();
       c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = px; c.stroke();
       // 뜨거워지는 자리: 집광 세기에 따라 갈색으로
@@ -3538,7 +4169,7 @@ const MECH = (() => {
       return;
     }
     // 타버린 종이: 양 끝의 그을은 조각만 남고, 처음 잠깐은 불씨가 보인다
-    const k = Math.min(1, replayTime() / BURN_T);
+    const k = Math.min(1, (replayTime() - (o.litAt || 0)) / BURN_T);
     const gone = hw * (0.25 + 0.6 * k);
     for (const sgn of [-1, 1]) {
       c.beginPath();
@@ -3593,8 +4224,10 @@ const MECH = (() => {
 
   function drawBodies(c, px) {
     const bodies = S.objs.filter(o => BODY_TYPES.has(o.type) && !o.hidden);
-    if (!bodies.length) return;
     const f = M ? MECH.frameAt(M, simTime()) : null;
+    // 떨어지는 촛농 방울 (시뮬레이션에만 있는 구슬)
+    if (f) M.balls.forEach((b, i) => { if (b.wax && !f.b[i][2]) drawWax(c, f.b[i][0], f.b[i][1], b.r, px); });
+    if (!bodies.length) return;
     for (const o of bodies) {
       const p = partGeom(o).params;
       if (o.type === 'pendulum') {
@@ -3603,7 +4236,7 @@ const MECH = (() => {
       } else if (o.type === 'lever') {
         const i = M ? M.levers.findIndex(q => q.obj === o) : -1;
         const a = f && i >= 0 ? f.l[i] : o.rot * Math.PI / 180;
-        drawLever(c, o, p, a, px);
+        drawLever(c, o, p, a, px, i >= 0 ? M.levers[i].loads : null);
       } else {
         const i = M ? M.balls.findIndex(b => b.obj === o) : -1;
         const st = f && i >= 0 ? f.b[i] : [o.x, o.y, 0];
@@ -3749,7 +4382,7 @@ const MECH = (() => {
     // 진자 라벨은 축 브래킷 옆에 붙인다 (전체 흔들림 범위 상자는 너무 크다)
     const bb = o.type === 'pendulum' ? [o.x - 12, o.y - 8, o.x + 12, o.y + 4] : worldBox(o), gap = 7 * px, th = o.rot * Math.PI / 180;
     // 빛이 드나드는 쪽(fx, fy)은 광학 부품에만 있다. 역학 부품은 어느 쪽이든 상관없다
-    const mech = o.type === 'paper' || o.type === 'loadcell' || o.type === 'pendulum' || o.type === 'ball' || o.type === 'wall' || o.type === 'lever' || o.type === 'slide';
+    const mech = o.type === 'paper' || o.type === 'loadcell' || o.type === 'pendulum' || o.type === 'ball' || o.type === 'wall' || o.type === 'lever' || o.type === 'slide' || !!HEAT[o.type] || BREAKABLE.has(o.type);
     const fx = mech ? 0 : o.type === 'sensor' ? -Math.cos(th) : Math.cos(th), fy = mech ? 0 : o.type === 'sensor' ? -Math.sin(th) : Math.sin(th);
     const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
     // 누운 종이는 위에 구슬이 올려져 있으니 아래쪽부터, 세운 종이·로드셀은 옆쪽부터 찾는다
@@ -4173,11 +4806,17 @@ const MECH = (() => {
     if (t === 'pendulum') return `L ${p.L} · m ${p.m}`;
     if (t === 'lever') return `${p.l1}+${p.l2} mm`;
     if (t === 'slide') return `R ${p.R}`;
+    if (t === 'ice') return `${p.w}×${p.h} mm`;
+    if (t === 'rope' || t === 'fuse') return `${p.len} mm`;
+    if (t === 'candle') return `h ${p.h} · ${p.n}방울`;
+    if (t === 'boiler') return `증기 ${p.jet} mm`;
+    if (t === 'flask') return `r ${p.r}`;
+    if (t === 'pane') return `${2 * p.h} mm`;
     return '60°';
   }
 
   // 판독 패널에 보여줄 장치: 목표가 있는 센서·로드셀, 그리고 모든 종이(집광 정도)
-  const goalDevices = () => S.objs.filter(o => !o.hidden && (o.type === 'sensor' ? (S.mode === 'lab' || o.goal) : o.type === 'paper' || ((o.type === 'loadcell' || o.type === 'pendulum') && o.goal)));
+  const goalDevices = () => S.objs.filter(o => !o.hidden && (o.type === 'sensor' ? (S.mode === 'lab' || o.goal) : HEAT[o.type] ? true : (o.type === 'loadcell' || o.type === 'pendulum' || BREAKABLE.has(o.type)) && o.goal));
 
   function buildPanel() {
     // compact 기둥으로 옮겨졌던 이전 스테이지의 미션·판독은 새로 만들므로 지운다
@@ -4266,7 +4905,7 @@ const MECH = (() => {
               ${o.type === 'sensor' ? `<canvas class="spec" aria-label="${o.label || '센서'}가 받은 빛의 스펙트럼"></canvas>` : ''}
               <div class="meters"></div>
             </div>`).join('')}
-          ${sensors.length ? '' : '<p class="dim small">센서·종이·로드셀·진자를 꺼내 놓으면 여기서 판독값을 보여줘요.</p>'}
+          ${sensors.length ? '' : '<p class="dim small">센서·종이·로드셀·진자·얼음·양초 같은 장치를 꺼내 놓으면 여기서 판독값을 보여줘요.</p>'}
         </div>
       </section>`;
   }
@@ -4554,7 +5193,7 @@ const MECH = (() => {
       const spec = bl.querySelector('canvas.spec');
       if (spec) drawSpectrum(spec, res);
       const n = bl.querySelector('.rd-n');
-      if (n) n.textContent = o.type === 'loadcell' ? (res.hit ? (res.hit.by === 'bob' ? '추가 닿음' : '구슬이 닿음') : '대기 중') : o.type === 'pendulum' ? (res.struck ? '충돌' : '정지') : o.type === 'paper' ? (res.ok ? '타버렸어요' : res.hits.length ? `${res.hits.length}줄 받음` : '빛 없음') : res.hits.length ? `${res.hits.length}줄` : '빛 없음';
+      if (n) n.textContent = o.type === 'loadcell' ? (res.hit ? (res.hit.by === 'bob' ? '추가 닿음' : '구슬이 닿음') : '대기 중') : o.type === 'pendulum' ? (res.struck ? '충돌' : '정지') : o.type === 'paper' ? (res.ok ? '타버렸어요' : res.hits.length ? `${res.hits.length}줄 받음` : '빛 없음') : BREAKABLE.has(o.type) ? (o.goneAt != null ? '깨짐' : '멀쩡함') : HEAT[o.type] ? (o.litAt != null ? ({ rope: '타는 중', ice: '녹는 중', candle: '녹는 중', boiler: '끓는 중', fuse: '타들어감' })[o.type] : res.hits.length ? `${res.hits.length}줄 받음` : '빛 없음') : res.hits.length ? `${res.hits.length}줄` : '빛 없음';
       const m = bl.querySelector('.meters');
       if (res.checks) {
         m.innerHTML = res.checks.map(k => `
@@ -4587,6 +5226,21 @@ const MECH = (() => {
       if (!r.hits.length) return '종이에 닿은 빛이 없어요.';
       if (r.reflected && r.reflected >= r.hits.length) return '종이 색과 같은 빛은 반사되어 달구지 않아요.';
       return '빛을 더 좍은 한 점에 모아야 타요.';
+    }
+    if (HEAT[r.obj.type]) {
+      const T = r.obj.type, o = r.obj;
+      if (r.ok) {
+        if (S.revealed) return '정답 배치에서 조건이 충족돼요.';
+        return { rope: '실이 타서 끊어져요.', ice: '얼음이 녹아 사라져요.', candle: '초가 녹아 촛농이 떨어져요.', boiler: '물이 끓어 증기가 뿜어져요.', fuse: '도화선에 불이 붙어요. 끝의 폭죽까지 타 들어가면 터져요.' }[T];
+      }
+      if (!r.hits.length) return { rope: '실에 닿은 빛이 없어요.', ice: '얼음에 닿은 빛이 없어요.', candle: '초에 닿은 빛이 없어요.', boiler: '주전자에 닿은 빛이 없어요.', fuse: '도화선에 닿은 빛이 없어요.' }[T];
+      if (o.litAt == null) return { rope: '실 한 점에 빛을 더 모아야 타요.', ice: '얼음에 빛을 더 모아야 녹아요.', candle: '초에 빛을 더 모아야 녹아요.', boiler: '주전자에 빛을 더 모아야 끓어요.', fuse: '도화선 한 점에 빛을 더 모아야 불이 붙어요.' }[T];
+      return T === 'boiler' ? '끓긴 하지만 불이 약해요. 빛을 더 모으면 증기가 세져요.' : '조금만 더 맞춰 보세요.';
+    }
+    if (BREAKABLE.has(r.obj.type)) {
+      const keep = r.obj.goal && r.obj.goal.checks.some(c => c.kind === 'intact');
+      if (r.ok) return S.revealed ? '정답 배치에서 조건이 충족돼요.' : keep ? '멀쩡하게 지켜냈어요.' : '깨졌어요.';
+      return keep ? '깨져 버렸어요. 구슬이 너무 빠르거나 폭발이 너무 가까워요.' : '아직 멀쩡해요. 구슬이 더 빠르게 부딪히거나 폭발이 닿아야 깨져요.';
     }
     if (r.obj.type === 'pendulum') {
       if (r.ok) return S.revealed ? '정답 배치에서 조건이 충족돼요.' : '조건 충족';
@@ -4634,7 +5288,7 @@ const MECH = (() => {
   /* 스테이지 이동: 머리띠의 ‹ 현재 › 와, 현재 버튼을 누르면 열리는 4×10 고르기 창 */
   const nav = $('#stageNav'), picker = $('#stagePick');
   const chip = (st, i) => `<button class="st-b mono" data-stage="${i}" title="${st.id}. ${st.title} (${st.tools})" aria-label="스테이지 ${st.id} ${st.title}">${String(st.id).padStart(2, '0')}</button>`;
-  nav.innerHTML = [['기초', 0, 10], ['응용', 10, 20], ['확장', 20, 30], ['역학', 30, 40], ['종합', 40, STAGES.length]].map(([name, a, b]) =>
+  nav.innerHTML = [['기초', 0, 10], ['응용', 10, 20], ['확장', 20, 30], ['역학', 30, 40], ['종합', 40, 50], ['파괴', 50, STAGES.length]].filter(([, a, b]) => b > a).map(([name, a, b]) =>
     `<div class="st-row"><span class="st-lab">${name}</span>${STAGES.slice(a, b).map((st, j) => chip(st, a + j)).join('')}</div>`).join('');
   nav.querySelectorAll('[data-stage]').forEach(b => {
     b.addEventListener('click', () => { closePicker(); loadStage(+b.dataset.stage); });
