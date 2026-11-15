@@ -1970,7 +1970,7 @@ const GAME = (() => {
       partParams: { lensConvex: { f: 100, h: 40 }, lensConcave: { f: -100, h: 40 } },
       hints: [
         '센서 판정은 실험이 끝난 뒤의 빛으로 해요. 스플리터로 나눈 절반은 85%에 모자라요 — 종이를 태우러 간 절반도 결국 센서로 돌아와야 해요.',
-        '종이가 타 없어지면 종이를 태우던 빛이 그 자리를 뚫고 내려가요. 책상 밑 고정 거울 두 장이 그 빛을 왼쪽으로, 다시 위로 보내 줘요. 올라온 빛을 거울 하나로 센서 쪽으로 꺾으세요. 판자와 구슬이 빛길을 막지 않게.',
+        '종이가 타 없어지면 종이를 태우던 빛이 그 자리를 뚫고 내려가요. 책상 밑 고정 거울 두 장이 그 빛을 왼쪽으로, 다시 위로 보내 줘요. 올라온 빛을 거울 하나로 센서 쪽으로 꺾으세요(y≈250~280). 판자와 구슬이 빛길을 막지 않게.',
       ],
       solution: [
         { type: 'splitter', x: 300, y: 318, rot: 45 },
@@ -2111,6 +2111,7 @@ const GAME = (() => {
         { type: 'wall', x: 572, y: 560, rot: 0, params: { w: 184, h: 12 } },
         { type: 'ball', x: 620, y: 542, rot: 0, params: { r: 12, m: 4 }, label: '납 구슬' },
         { type: 'paper', x: 650, y: 499, rot: 90, params: { w: 110, need: 0.45 }, label: '종이 문' },
+        { type: 'wall', x: 870, y: 300, rot: 0, params: { w: 260, h: 12 }, label: '선반' },
         { type: 'loadcell', x: 700, y: 560, rot: 0, params: { w: 70 }, label: '약한 로드셀', goal: { checks: [{ kind: 'touch' }, { kind: 'impact', max: 400 }] } },
         { type: 'wall', x: 790, y: 560, rot: 0, params: { w: 108, h: 12 } },
         { type: 'wall', x: 850, y: 540, rot: 0, params: { w: 12, h: 28 } },
@@ -2120,14 +2121,14 @@ const GAME = (() => {
       partNames: { plank: '긴 판자' },
       hints: [
         '질량이 4배인 납 구슬은 정면으로 부딪혀도 친 구슬 속도의 40%만 받아요. 판자를 낮고 완만하게 두어 구슬이 바닥을 굴러 납 구슬을 치게 하세요. 높은 곳에서 로드셀로 바로 떨어지면 고장 나요.',
-        '스플리터를 반대로(315°) 세워 절반을 구슬 밑 종이로 내리고, 통과한 절반은 오른쪽 끝에서 거울 두 장으로 꺾어 종이 문을 옆에서 비추세요. 렌즈는 문에서 100 mm 앞에.',
+        '스플리터를 반대로(315°) 세워 절반을 구슬 밑 종이로 내리고, 통과한 절반은 거울 두 장으로 꺾어 종이 문을 옆에서 비춰야 하는데, 오른쪽 선반 때문에 문에서 100 mm 떨어진 자리로는 내려올 수 없어요. 둘째 거울을 문 가까이(x≈696) 두고, 렌즈는 그 위 세로 구간에 두어 렌즈→거울→문 거리의 합을 100 mm로 맞추세요.',
       ],
       solution: [
         { type: 'splitter', x: 430, y: 150, rot: 315 },
         { type: 'lensConvex', x: 430, y: 227, rot: 90 },
-        { type: 'mirror', x: 930, y: 150, rot: 315 },
-        { type: 'mirror', x: 930, y: 455, rot: 45 },
-        { type: 'lensConvex', x: 750, y: 455, rot: 0 },
+        { type: 'mirror', x: 696, y: 150, rot: 315 },
+        { type: 'lensConvex', x: 696, y: 416, rot: 90 },
+        { type: 'mirror', x: 696, y: 470, rot: 45 },
         { type: 'plank', x: 460, y: 510, rot: 12 },
       ],
     },
@@ -2213,25 +2214,23 @@ const GAME = (() => {
         { type: 'loadcell', x: 500, y: 281, rot: 180, params: { w: 60 }, label: '천장 로드셀', goal: { checks: [{ kind: 'touch' }] } },
         { type: 'wall', x: 537, y: 318, rot: 0, params: { w: 12, h: 86 } },
         // 납 구슬 선반 (오른팔 바깥쪽 위)
-        { type: 'wall', x: 648, y: 276, rot: 0, params: { w: 14, h: 30 } },
-        { type: 'wall', x: 772, y: 276, rot: 0, params: { w: 14, h: 30 } },
-        { type: 'paper', x: 710, y: 259.5, rot: 0, params: { w: 110, need: 0.45 }, label: '종이 선반' },
-        { type: 'ball', x: 738, y: 246, rot: 0, params: { r: 12, m: 4 }, label: '납 구슬' },
+        { type: 'wall', x: 648, y: 222, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'wall', x: 772, y: 222, rot: 0, params: { w: 14, h: 30 } },
+        { type: 'paper', x: 710, y: 205.5, rot: 0, params: { w: 110, need: 0.45 }, label: '종이 선반' },
+        { type: 'ball', x: 752, y: 192, rot: 0, params: { r: 12, m: 4 }, label: '납 구슬' },
         { type: 'wall', x: 500, y: 590, rot: 0, params: { w: 1000, h: 10 } },
       ],
-      inventory: { splitter: 1, mirror: 3, lensConvex: 2, plank: 1, filter: 1, lensConcave: 1 },
+      inventory: { splitter: 1, mirror: 2, lensConvex: 2, plank: 1, filter: 1, lensConcave: 1 },
       partParams: { lensConvex: { f: 140, h: 40 }, lensConcave: { f: -140, h: 40 } },
       hints: [
         '지레는 힘 × 팔 길이로 돌아가요. 납 구슬이 축에서 멀리, 높은 데서 떨어질수록 쇠구슬이 높이 튀어요. 판자를 선반 아래 비스듬히 두어 납 구슬을 오른팔 끝으로 떨어뜨리세요.',
-        '스플리터로 나눈 절반은 거울 두 장으로 위를 돌아 선반 종이에 렌즈로 모으고, 통과한 절반은 거울로 꺾어 종이 걸쇠에 렌즈로 모으세요. 걸쇠가 남아 있으면 지레는 꿈쩍도 안 해요.',
+        '스플리터에서 내려간 절반은 렌즈로 종이 걸쇠에. 통과한 절반은 거울로 꺾어 선반 종이에 모아야 하는데, 선반이 빔에서 56 mm밖에 안 떨어져 거울 밑엔 렌즈 자리가 없어요 — 렌즈를 거울 앞에 두고 렌즈→거울→종이 거리의 합을 100 mm로. 걸쇠가 남아 있으면 지레는 꿈쩍도 안 해요.',
       ],
       solution: [
-        { type: 'splitter', x: 300, y: 150, rot: 45 },
-        { type: 'mirror', x: 300, y: 60, rot: 225 },
-        { type: 'mirror', x: 672, y: 60, rot: 315 },
-        { type: 'lensConvex', x: 672, y: 120, rot: 90 },
-        { type: 'mirror', x: 418, y: 150, rot: 315 },
+        { type: 'splitter', x: 418, y: 150, rot: 315 },
         { type: 'lensConvex', x: 418, y: 290, rot: 90 },
+        { type: 'lensConvex', x: 652, y: 150, rot: 0 },
+        { type: 'mirror', x: 705, y: 150, rot: 315 },
         { type: 'plank', x: 730, y: 380, rot: -40 },
       ],
     },
@@ -2309,7 +2308,7 @@ const GAME = (() => {
     },
     {
       id: 44, title: '턱 없는 다리',
-      clearTitle: '턱 없이 이어진 길로 속도를 지켜 되돌아왔어요',
+      clearTitle: '선반에 막힌 수직 낙하 대신 비스듬한 빛으로 뚜껑을 태웠어요',
       brief: '구슬을 가운데 선반 위 <b>로드셀</b>에 올리세요.',
       fixed: [
         { type: 'source', x: 70, y: 40, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
@@ -2334,19 +2333,21 @@ const GAME = (() => {
         { type: 'wall', x: 630, y: 544, rot: 0, params: { w: 140, h: 8 } },
         { type: 'loadcell', x: 630, y: 534, rot: 0, params: { w: 130 }, label: '로드셀', goal: { checks: [{ kind: 'touch' }] } },
         { type: 'wall', x: 565, y: 492, rot: 0, params: { w: 10, h: 112 }, label: '등판' },
-        { type: 'paper', x: 622, y: 496.5, rot: 0, params: { w: 104, need: 0.45 }, label: '종이 뚜껑' },
+        { type: 'wall', x: 622, y: 300, rot: 0, params: { w: 150, h: 12 }, label: '선반' },
+        { type: 'paper', x: 632, y: 496.5, rot: 0, params: { w: 124, need: 0.45 }, label: '종이 뚜껑' },
+        { type: 'wall', x: 699, y: 515, rot: 0, params: { w: 10, h: 50 } },
       ],
       inventory: { splitter: 1, mirror: 1, lensConvex: 2, plank: 1, filter: 1, slit: 1 },
       partParams: { lensConvex: { f: 100, h: 40 } },
       hints: [
         '구덩이 양쪽에 판자 두께만큼 낮은 턱이 있어요. 판자를 턱에 꼭 맞게 걸쳐 바닥과 높이가 같아야 구슬이 걸리지 않고 속도를 지켜요. 속도가 있어야 U턴을 다 돌아 선반 높이까지 올라와요.',
-        '스플리터에서 아래로 꺾인 빛은 렌즈로 선반 종이에, 통과한 빛은 거울로 꺾어 종이 뚜껑에 위에서 렌즈로 모으세요. 뚜껑이 남아 있으면 구슬이 로드셀에 닿지 못해요.',
+        '스플리터에서 아래로 꺾인 빛은 렌즈로 선반 종이에. 종이 뚜껑 바로 위엔 선반이 있어 45°로 꺾어 수직으로 내릴 수 없어요. 거울을 45°보다 몇 도 더 눕혀(328° 안팎) 오른쪽 위에서 뚜껑을 향해 비스듬히 쏘고, 렌즈도 그 빛과 나란히 기울여 뚜껑 100 mm 앞에 두세요. 뚜껑이 남아 있으면 구슬이 로드셀에 닿지 못해요.',
       ],
       solution: [
         { type: 'splitter', x: 215, y: 40, rot: 315 },
         { type: 'lensConvex', x: 215, y: 100, rot: 90 },
-        { type: 'mirror', x: 630, y: 40, rot: 315 },
-        { type: 'lensConvex', x: 630, y: 396, rot: 90 },
+        { type: 'mirror', x: 850, y: 40, rot: 328 },
+        { type: 'lensConvex', x: 671, y: 406, rot: 116 },
         { type: 'plank', x: 420, y: 584, rot: 0 },
       ],
     },
@@ -2367,7 +2368,8 @@ const GAME = (() => {
         { type: 'ball', x: 478, y: 386, rot: 0, params: { r: 12 }, label: '쇠구슬' },
         // 바닥의 쇠구슬, 종이 문, 구덩이(바닥에 로드셀), 30 mm 낮은 건너편(바닥에 로드셀)
         { type: 'ball', x: 640, y: 568, rot: 0, params: { r: 12 } },
-        { type: 'paper', x: 765, y: 536, rot: 90, params: { w: 80, need: 0.45 }, label: '종이 문' },
+        { type: 'paper', x: 765, y: 530, rot: 90, params: { w: 100, need: 0.45 }, label: '종이 문' },
+        { type: 'wall', x: 915, y: 300, rot: 0, params: { w: 180, h: 12 }, label: '선반' },
         // 낮은 천장: 구슬 하나 높이만 남긴다 — 바닥 구슬을 뛰어넘어 갈 수 없다
         { type: 'wall', x: 660, y: 544, rot: 0, params: { w: 200, h: 8 }, label: '낮은 천장' },
         { type: 'wall', x: 460, y: 586, rot: 0, params: { w: 620, h: 12 } },
@@ -2383,14 +2385,14 @@ const GAME = (() => {
       partNames: { plank: '긴 판자' },
       hints: [
         '같은 무게의 공을 정면으로 치면 친 공은 그 자리에 멈추고 맞은 공만 굴러가요. 무거운 공이 치면 맞은 공은 더 빨라지고, 친 공도 멈추지 않고 따라가요.',
-        '스플리터에서 아래로 꺾인 빛은 납 구슬 선반에 렌즈로 모으고, 통과한 빛은 거울 두 장으로 오른쪽을 돌아 종이 문에 옆에서 렌즈로 모으세요. 판자는 떨어지는 납 구슬을 받아 바닥으로 굴려 보내는 비탈이에요.',
+        '스플리터에서 아래로 꺾인 빛은 납 구슬 선반에 렌즈로 모으고, 통과한 빛은 거울 두 장으로 오른쪽을 돌아 종이 문에 옆에서 모아야 하는데, 선반 때문에 문에서 100 mm 떨어진 자리로는 내려올 수 없어요. 렌즈를 둘째 거울 앞 세로 구간에 두고 렌즈→거울→문 거리의 합을 100 mm로 맞추세요(거울은 문 바로 옆, x≈812). 판자는 떨어지는 납 구슬을 받아 바닥으로 굴려 보내는 비탈이에요.',
       ],
       solution: [
         { type: 'splitter', x: 240, y: 40, rot: 315 },
         { type: 'lensConvex', x: 240, y: 300, rot: 90 },
-        { type: 'mirror', x: 900, y: 40, rot: 315 },
-        { type: 'mirror', x: 900, y: 520, rot: 45 },
-        { type: 'lensConvex', x: 820, y: 520, rot: 0 },
+        { type: 'mirror', x: 812, y: 40, rot: 315 },
+        { type: 'lensConvex', x: 812, y: 447, rot: 90 },
+        { type: 'mirror', x: 812, y: 500, rot: 45 },
         { type: 'plank', x: 330, y: 500, rot: 20 },
       ],
     },
@@ -2517,6 +2519,7 @@ const GAME = (() => {
         { type: 'wall', x: 500, y: 368, rot: 0, params: { w: 120, h: 136 }, label: '낮은 천장' },
         { type: 'paper', x: 590, y: 430, rot: 90, params: { w: 60, need: 0.45 }, label: '종이 막이' },
         // 창이 뚫린 벽: 창 520~580 (너무 빠르면 위 벽, 느리면 창턱), 그 뒤 바닥 로드셀 + 뒷벽
+        { type: 'wall', x: 860, y: 300, rot: 0, params: { w: 280, h: 12 }, label: '선반' },
         { type: 'wall', x: 760, y: 480, rot: 0, params: { w: 14, h: 80 } },
         { type: 'wall', x: 760, y: 595, rot: 0, params: { w: 14, h: 30 } },
         { type: 'loadcell', x: 850, y: 600, rot: 0, params: { w: 140 }, label: '창 너머 셀', goal: { checks: [{ kind: 'touch' }] } },
@@ -2528,14 +2531,13 @@ const GAME = (() => {
       partNames: { plank: '긴 판자' },
       hints: [
         '같은 질량의 구슬이 정면으로 부딪히면 속도를 통째로 넘겨요. 맞닿은 줄을 치면 치는 구슬은 멈추고 맨 끝 구슬만 그 속도로 튀어 나가요. 끝을 막은 종이가 남아 있으면 튀어 나가지 못해요.',
-        '스플리터에서 아래로 꺾인 빛은 선반 종이에, 통과한 빛은 거울 두 번으로 꺾어 오른쪽에서 종이 막이에 렌즈로 모으세요. 긴 판자는 선반 밑에서 탁자 왼쪽 모서리 쪽으로 35° 안팎으로 걸쳐, 구슬이 탁자 위를 굴러 줄을 정면으로 치게 하세요. 끝 구슬이 너무 빠르면 창 위 벽에, 느리면 창턱에 부딪혀요. 판자 끝 높이로 속도를 맞추세요.',
+        '스플리터에서 아래로 꺾인 빛은 선반 종이에. 통과한 빛은 오른쪽 위 거울로 종이 막이에 보내야 하는데, 오른쪽 선반이 45° 수직 낙하 길을 막아요. 거울을 몇 도 더 눕혀(336° 안팎) 막이를 향해 비스듬히 쏘고, 렌즈도 그 빛과 나란히 기울여 막이 100 mm 앞에 두세요. 긴 판자는 선반 밑에서 탁자 왼쪽 모서리 쪽으로 35° 안팎으로 걸쳐, 구슬이 탁자 위를 굴러 줄을 정면으로 치게 하세요. 끝 구슬이 너무 빠르면 창 위 벽에, 느리면 창턱에 부딪혀요. 판자 끝 높이로 속도를 맞추세요.',
       ],
       solution: [
         { type: 'splitter', x: 180, y: 80, rot: 315 },
         { type: 'lensConvex', x: 180, y: 150, rot: 90 },
-        { type: 'mirror', x: 900, y: 80, rot: 315 },
-        { type: 'mirror', x: 900, y: 410, rot: 45 },
-        { type: 'lensConvex', x: 700, y: 410, rot: 0 },
+        { type: 'mirror', x: 900, y: 80, rot: 336 },
+        { type: 'lensConvex', x: 657, y: 350, rot: 132 },
         { type: 'plank', x: 250, y: 330, rot: 35 },
       ],
     },
@@ -2680,10 +2682,10 @@ const GAME = (() => {
     },
     {
       id: 55, title: '창문은 깨도 꽃병은',
-      clearTitle: '창문만 깨고 꽃병은 지켰어요',
+      clearTitle: '렌즈 축을 올려 구슬 너머의 실을 끊고, 창문만 깨뜨렸어요',
       brief: '<b>유리창</b>은 깨고 <b>꽃병</b>은 지키면서, 구슬을 <b>로드셀</b>에 닿게 하세요.',
       fixed: [
-        { type: 'source', x: 70, y: 120, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
+        { type: 'source', x: 70, y: 160, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
         { type: 'rope', x: 300, y: 30, rot: 0, params: { len: 110, need: 0.8, spot: 10 }, label: '실' },
         { type: 'ball', x: 300, y: 152, rot: 0, params: { r: 12 } },
         // 바닥(윗면 598)과 그 틈에 끼운 로드셀. 유리창은 600 mm/s 넘게 부딪혀야 깨지고, 꽃병은 850 mm/s에 깨진다
@@ -2696,13 +2698,14 @@ const GAME = (() => {
         { type: 'flask', x: 760, y: 562, rot: 0, params: { r: 36, vb: 850 }, label: '꽃병', goal: { checks: [{ kind: 'intact' }] } },
       ],
       inventory: { splitter: 1, filter: 1, lensConvex: 1, mirror: 1, plank: 1 },
-      partParams: { lensConvex: { f: 100, h: 40 }, plank: { len: 200 } },
+      partParams: { lensConvex: { f: 100, h: 70 } },
+      partNames: { lensConvex: '큰 볼록렌즈' },
       hints: [
         '유리창은 600 mm/s 넘게 부딪혀야 깨지고, 꽃병은 850 mm/s가 넘으면 깨져요. 판자의 높이와 기울기로 구슬의 속도를 맞추세요.',
-        '렌즈로 실을 태워 구슬을 떨어뜨리고, 판자를 구슬 아래에 25° 안팎으로 비스듬히 두어 오른쪽으로 굴리세요. 너무 높거나 가파르면 꽃병까지 깨져요.',
+        '빔은 실이 아니라 구슬 높이로 지나가서 구슬에 막혀요. 렌즈를 빔 한가운데 두면 초점도 구슬에 맺히죠. 축에 나란한 빛은 렌즈 어디를 지나든 축 위의 초점에 모여요 — 큰 렌즈를 위로 올려 축을 실 끝 높이(y≈135)에 맞추세요. 떨어진 구슬은 판자로 25° 안팎 비탈을 만들어 오른쪽으로. 너무 높거나 가파르면 꽃병까지 깨져요.',
       ],
       solution: [
-        { type: 'lensConvex', x: 197, y: 120, rot: 0 },
+        { type: 'lensConvex', x: 195, y: 133, rot: 0 },
         { type: 'plank', x: 300, y: 510, rot: 20 },
       ],
     },
@@ -2731,14 +2734,14 @@ const GAME = (() => {
       ],
     },
     {
-      id: 57, title: '깨진 물병, 바뀐 빛길',
-      clearTitle: '물병을 깨뜨려 빛길을 되찾고 종이를 태웠어요',
-      brief: '<b>물병</b>을 깨뜨리고, <b>종이</b>를 태우세요.',
+      id: 57, title: '물병 렌즈',
+      clearTitle: '물병이 모은 빛이 다시 퍼지는 자리를 렌즈 공식으로 계산해 종이에 맺었어요',
+      brief: '<b>물병</b>은 깨뜨리지 말고, <b>종이</b>를 태우세요.',
       fixed: [
         { type: 'source', x: 70, y: 240, rot: 0, params: { spectrum: 'mono', lambda: 650, width: 16, rays: 5 }, label: '레이저 650 nm' },
         // 물이 든 둥근 병: 빔이 위쪽을 비껴 지나며 아래로 꺾인다. 900 mm/s 넘게 부딪혀야 깨진다
-        { type: 'wall', x: 250, y: 304, rot: 0, params: { w: 60, h: 12 }, label: '받침' },
-        { type: 'flask', x: 250, y: 262, rot: 0, params: { r: 36, vb: 900 }, label: '물병', goal: { checks: [{ kind: 'broken' }] } },
+        { type: 'wall', x: 250, y: 282, rot: 0, params: { w: 60, h: 12 }, label: '받침' },
+        { type: 'flask', x: 250, y: 240, rot: 0, params: { r: 36, vb: 900 }, label: '물병', goal: { checks: [{ kind: 'intact' }] } },
         // 구슬 선반
         // 구슬 비탈: 물병 오른쪽 위에서 왼쪽으로 굴러 떨어진다
         { type: 'wall', x: 410, y: 80, rot: -10, params: { w: 80, h: 12 }, label: '비탈' },
@@ -2749,12 +2752,11 @@ const GAME = (() => {
       inventory: { lensConvex: 1, splitter: 1, mirror: 1, plank: 1, filter: 1 },
       partParams: { lensConvex: { f: 100, h: 40 }, plank: { len: 120 } },
       hints: [
-        '물병은 물 렌즈라서 비껴 지나는 빛을 크게 꺾어요. 물병이 깨지면 빛은 곧게 나아가요.',
-        '물병은 900 mm/s 넘게 부딪혀야 깨져요. 비탈에서 떨어지는 구슬을 판자(−55° 안팎)로 받아 물병 윗부분으로 세게 꺾어 보내고, 종이 100 mm 앞에 렌즈를 두세요. 판자가 빔을 가리면 안 돼요.',
+        '둥근 물병은 물이 가득 찬 렌즈예요. 빔이 물병 한가운데를 지나면 바로 뒤의 한 점에 모였다가 다시 퍼져 나가요. 퍼지는 빛은 종이 100 mm 앞에 렌즈를 둬도 한 점에 모이지 않아요.',
+        '퍼지는 빛의 출발점(물병 뒤 초점)에서 렌즈까지 a, 렌즈에서 종이까지 b가 1/a + 1/b = 1/f를 만족해야 종이 위에 다시 점이 맺혀요. 물병 뒤 150~190 mm 자리를 찾아보세요. 구슬이 물병을 깨면 실패예요.',
       ],
       solution: [
-        { type: 'plank', x: 350, y: 160, rot: -55 },
-        { type: 'lensConvex', x: 720, y: 240, rot: 0 },
+        { type: 'lensConvex', x: 470, y: 240, rot: 0 },
       ],
     },
     {
